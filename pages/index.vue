@@ -1,23 +1,49 @@
 <template>
     <div>
+        <form>
+            <input
+                name="address"
+                placeholder="address"
+                autocomplete="shipping address-line1"
+            />
+            <input
+                name="apartment"
+                placeholder="apartment"
+                autocomplete="shipping address-line2"
+            />
+            <input
+                name="city"
+                placeholder="city"
+                autocomplete="shipping address-level2"
+            />
+            <input
+                name="state"
+                placeholder="state"
+                autocomplete="shipping address-level1"
+            />
+            <input
+                name="country"
+                placeholder="country"
+                autocomplete="shipping country"
+            />
+        </form>
         <div id="map" style="width: 100%; height: 100vh"></div>
     </div>
 </template>
 
 <script>
-import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
-import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
-import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
 export default {
     data() {
         return {
             access_token:
                 "pk.eyJ1IjoiZWxnZXJhcmRvIiwiYSI6ImNsOG90NjFtMzFucG0zeWw1YWRheTV5ZmYifQ.87BCgCSXpjLIHkqGsWUW7g",
             map: {},
-            lng: 107.61861,
-            lat: -6.90389,
             marker: {},
+            search: {},
+            coordinates: {
+                lng: 107.61861,
+                lat: -6.90389,
+            },
         };
     },
 
@@ -29,10 +55,9 @@ export default {
         init() {
             let successCallback = (location) => {
                 this.success = true;
-
-                (this.lat = location.coords.latitude),
-                    (this.lng = location.coords.longitude),
-                    this.createMap();
+                this.coordinates.lat = location.coords.latitude;
+                this.coordinates.lng = location.coords.longitude;
+                this.createMap();
             };
 
             let errorCallback = (location) => {
@@ -46,8 +71,8 @@ export default {
         },
 
         createMap() {
-            mapboxgl.accessToken = this.access_token;
-            this.map = new mapboxgl.Map({
+            this.$mapboxgl.accessToken = this.access_token;
+            this.map = new this.$mapboxgl.Map({
                 container: "map",
                 style: "mapbox://styles/mapbox/streets-v11",
                 zoom: 11,
@@ -55,30 +80,21 @@ export default {
                 bearing: -17.6, // rotation
                 antialias: true,
                 //                center: [coordinates.longitude, coordinates.latitute],
-                center: [this.lng, this.lat],
+                center: [this.coordinates.lng, this.coordinates.lat],
                 projection: "globe", // display the map as a 3D globe,
                 attributionControl: false,
             });
 
-            this.marker = new mapboxgl.Marker({
-                color: "#FFFFFF",
+            this.marker = new this.$mapboxgl.Marker({
+                color: "blue",
                 draggable: true,
             })
-                .setLngLat([this.lng, this.lat])
+                .setLngLat([this.coordinates.lng, this.coordinates.lat])
                 .addTo(this.map);
 
-            this.map.addControl(
-                new MapboxGeocoder({
-                    accessToken: mapboxgl.accessToken,
-                    mapboxgl: mapboxgl,
-                })
-            );
-
             this.map.on("click", (event) => {
-                this.lat = parseFloat(event.lngLat.lat);
-                this.lng = parseFloat(event.lngLat.lng);
-
-                this.marker.setLngLat([this.lng, this.lat]);
+                this.coordinates.lat = parseFloat(event.lngLat.lat);
+                this.coordinates.lng = parseFloat(event.lngLat.lng);
             });
 
             this.map.on("load", () => {
@@ -100,6 +116,10 @@ export default {
                         filter: ["==", "extrude", "true"],
                         type: "fill-extrusion",
                         minzoom: 15,
+                        transition: {
+                            duration: 300,
+                            delay: 0,
+                        },
                         paint: {
                             "fill-extrusion-color": "#aaa",
 
@@ -130,6 +150,34 @@ export default {
                     labelLayerId
                 );
             });
+
+            this.search = this.$search.autofill({
+                accessToken: this.access_token,
+                options: { country: "us" },
+            });
+
+            this.search.addEventListener("retrieve", (event) => {
+                this.coordinates.lat =
+                    event.detail.features[0].geometry.coordinates[1];
+                this.coordinates.lng =
+                    event.detail.features[0].geometry.coordinates[0];
+                this.map.setCenter([
+                    this.coordinates.lng,
+                    this.coordinates.lat,
+                ]);
+            });
+        },
+    },
+
+    watch: {
+        coordinates: {
+            deep: true,
+            handler(value, old) {
+                this.marker.setLngLat([
+                    this.coordinates.lng,
+                    this.coordinates.lat,
+                ]);
+            },
         },
     },
 };
