@@ -5,26 +5,31 @@
                 name="address"
                 placeholder="address"
                 autocomplete="shipping address-line1"
+                v-model="form.address"
             />
             <input
                 name="apartment"
                 placeholder="apartment"
                 autocomplete="shipping address-line2"
+                v-model="form.apartment"
             />
             <input
                 name="city"
                 placeholder="city"
                 autocomplete="shipping address-level2"
+                v-model="form.city"
             />
             <input
                 name="state"
                 placeholder="state"
                 autocomplete="shipping address-level1"
+                v-model="form.state"
             />
             <input
                 name="country"
                 placeholder="country"
                 autocomplete="shipping country"
+                v-model="form.country"
             />
         </form>
         <div id="map" style="width: 100%; height: 100vh"></div>
@@ -41,14 +46,21 @@ export default {
             marker: {},
             search: {},
             coordinates: {
-                lng: 107.61861,
-                lat: -6.90389,
+                lat: 32.57931,
+                lng: -117.0839,
+            },
+            form: {
+                address: null,
+                apartment: null,
+                city: null,
+                state: null,
+                country: null,
             },
         };
     },
 
     mounted() {
-        this.init();
+        this.createMap();
     },
 
     methods: {
@@ -91,8 +103,15 @@ export default {
             })
                 .setLngLat([this.coordinates.lng, this.coordinates.lat])
                 .addTo(this.map);
+            
+            this.marker.on("dragend", (event) => {
+                console.log(event);
+                this.coordinates.lng = this.marker.getLngLat().lng;
+                this.coordinates.lat = this.marker.getLngLat().lat;
+            })
 
             this.map.on("click", (event) => {
+                console.log(event);
                 this.coordinates.lat = parseFloat(event.lngLat.lat);
                 this.coordinates.lng = parseFloat(event.lngLat.lng);
             });
@@ -156,15 +175,20 @@ export default {
                 options: { country: "us" },
             });
 
+            //watch this function
+
             this.search.addEventListener("retrieve", (event) => {
                 this.coordinates.lat =
                     event.detail.features[0].geometry.coordinates[1];
                 this.coordinates.lng =
                     event.detail.features[0].geometry.coordinates[0];
-                this.map.setCenter([
-                    this.coordinates.lng,
-                    this.coordinates.lat,
-                ]);
+                this.map.easeTo({
+                    center: this.coordinates,
+                    zoom: 11,
+                    speed: 2,
+                    duration: 2500,
+                    curve: 2,
+                });
             });
         },
     },
@@ -173,12 +197,30 @@ export default {
         coordinates: {
             deep: true,
             handler(value, old) {
-                this.marker.setLngLat([
-                    this.coordinates.lng,
-                    this.coordinates.lat,
-                ]);
+                this.marker.setLngLat(this.coordinates);
+                this.map.easeTo({
+                    center: this.coordinates,
+                    zoom: 11,
+                    speed: 2,
+                    duration: 2500,
+                    curve: 2,
+                });
             },
         },
+        /*search: {
+            deep: true,
+            handler(value, old) {
+                console.log(value);
+                this.map.easeTo({
+                    center: this.coordinates,
+                    zoom: 15,
+                    speed: 2,
+                    duration: 2500,
+                    curve: 2,
+                });
+            },
+        },*/
     },
 };
+//drag marker an update inputs
 </script>
