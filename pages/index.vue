@@ -103,18 +103,28 @@ export default {
             })
                 .setLngLat([this.coordinates.lng, this.coordinates.lat])
                 .addTo(this.map);
-            
+
             this.marker.on("dragend", (event) => {
-                console.log(event);
+                //console.log(event);
                 this.coordinates.lng = this.marker.getLngLat().lng;
                 this.coordinates.lat = this.marker.getLngLat().lat;
-            })
+            });
 
             this.map.on("click", (event) => {
-                console.log(event);
+                //console.log(event);
                 this.coordinates.lat = parseFloat(event.lngLat.lat);
                 this.coordinates.lng = parseFloat(event.lngLat.lng);
+                this.getAddress();
             });
+
+            let geocoder = new this.$MapboxGeocoder({
+                accessToken: this.access_token,
+                mapboxgl: this.map,
+                types: "country, region ,postcode, district, place, locality ,neighborhood ,address",
+                reverseGeocode: true,
+            });
+            this.map.addControl(geocoder);
+            //console.log(geocoder);
 
             this.map.on("load", () => {
                 // Insert the layer beneath any symbol layer.
@@ -184,12 +194,24 @@ export default {
                     event.detail.features[0].geometry.coordinates[0];
                 this.map.easeTo({
                     center: this.coordinates,
-                    zoom: 11,
                     speed: 2,
                     duration: 2500,
                     curve: 2,
                 });
             });
+        },
+
+        async getAddress() {
+            let response = await this.$axios.get(
+                "https://api.mapbox.com/geocoding/v5/mapbox.places/" +
+                    this.coordinates.lng +
+                    "," +
+                    this.coordinates.lat +
+                    ".json?access_token=" +
+                    this.access_token
+            );
+            console.log(response.data.features);
+            this.form.address = response.data.features[0].address + ' ' + response.data.features[0].text;
         },
     },
 
@@ -200,7 +222,6 @@ export default {
                 this.marker.setLngLat(this.coordinates);
                 this.map.easeTo({
                     center: this.coordinates,
-                    zoom: 11,
                     speed: 2,
                     duration: 2500,
                     curve: 2,

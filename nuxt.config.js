@@ -36,18 +36,23 @@ export default {
         {
           src: "~/plugins/imports/geocode.js",
         },
+        {
+            src: "~/plugins/imports/geocoding.js",
+        },
     ],
 
     // Auto import components: https://go.nuxtjs.dev/config-components
     components: true,
 
     // Modules for dev and build (recommended): https://go.nuxtjs.dev/config-modules
-    buildModules: [],
+    buildModules: [
+    ],
 
     // Modules: https://go.nuxtjs.dev/config-modules
     modules: [
         // https://go.nuxtjs.dev/bootstrap
         "bootstrap-vue/nuxt",
+        "@nuxtjs/axios",
     ],
 
     // Build Configuration: https://go.nuxtjs.dev/config-build
