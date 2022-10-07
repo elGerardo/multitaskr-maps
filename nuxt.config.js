@@ -39,6 +39,9 @@ export default {
         {
             src: "~/plugins/imports/geocoding.js",
         },
+        {
+            src: "~/plugins/imports/mapboxdraw.js",
+        },
     ],
 
     // Auto import components: https://go.nuxtjs.dev/config-components

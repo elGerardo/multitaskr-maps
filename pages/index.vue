@@ -2,12 +2,14 @@
     <div>
         <form>
             <input
+                style="width: 750px"
                 name="address"
                 placeholder="address"
                 autocomplete="shipping address-line1"
                 v-model="form.address"
             />
-            <input
+            <b-button @click="initPolygonDraw()">Draw Polygon</b-button>
+            <!--<input
                 name="apartment"
                 placeholder="apartment"
                 autocomplete="shipping address-line2"
@@ -30,7 +32,7 @@
                 placeholder="country"
                 autocomplete="shipping country"
                 v-model="form.country"
-            />
+            />-->
         </form>
         <div id="map" style="width: 100%; height: 100vh"></div>
     </div>
@@ -46,6 +48,7 @@ export default {
             map: {},
             marker: {},
             search: {},
+            draw: {},
             coordinates: {
                 lat: 32.5665,
                 lng: -117.0235,
@@ -57,43 +60,35 @@ export default {
                 state: null,
                 country: null,
             },
+            geojsonArrays: [],
         };
     },
 
     mounted() {
         this.createMap();
+        this.filterData();
+        console.log(this.geojson);
     },
 
     computed: {
         ...mapGetters({
             places: "places/places",
+            geojson: "geojson/geojson",
         }),
     },
 
     methods: {
-        init() {
-            let successCallback = (location) => {
-                this.success = true;
-                this.coordinates.lat = location.coords.latitude;
-                this.coordinates.lng = location.coords.longitude;
-                this.createMap();
-            };
-
-            let errorCallback = (location) => {
-                console.log("Error Location");
-            };
-
-            navigator.geolocation.getCurrentPosition(
-                successCallback,
-                errorCallback
-            );
+        createMap() {
+            this.initMap();
+            this.initMarker();
+            this.initSearch();
         },
 
-        createMap() {
+        initMap() {
             this.$mapboxgl.accessToken = this.access_token;
             this.map = new this.$mapboxgl.Map({
                 container: "map",
-                style: "mapbox://styles/mapbox/streets-v11",
+                style: "mapbox://styles/elgerardo/cl8yrf6l1000e15o68btt9hgi",
                 zoom: 11,
                 pitch: 45, //inclination
                 bearing: -17.6, // rotation
@@ -104,6 +99,19 @@ export default {
                 attributionControl: false,
             });
 
+            this.map.on("click", (event) => {
+                this.coordinates.lat = parseFloat(event.lngLat.lat);
+                this.coordinates.lng = parseFloat(event.lngLat.lng);
+                this.getAddress();
+            });
+
+            this.map.on("load", () => {
+                //this.init3D();
+                this.addPolygon();
+            });
+        },
+
+        initMarker() {
             this.marker = new this.$mapboxgl.Marker({
                 color: "blue",
                 draggable: true,
@@ -112,74 +120,12 @@ export default {
                 .addTo(this.map);
 
             this.marker.on("dragend", (event) => {
-                //console.log(event);
                 this.coordinates.lng = this.marker.getLngLat().lng;
                 this.coordinates.lat = this.marker.getLngLat().lat;
             });
+        },
 
-            this.map.on("click", (event) => {
-                //console.log(event);
-                this.coordinates.lat = parseFloat(event.lngLat.lat);
-                this.coordinates.lng = parseFloat(event.lngLat.lng);
-                this.getAddress();
-            });
-
-            this.map.on("load", () => {
-                // Insert the layer beneath any symbol layer.
-                const layers = this.map.getStyle().layers;
-                const labelLayerId = layers.find(
-                    (layer) =>
-                        layer.type === "symbol" && layer.layout["text-field"]
-                ).id;
-
-                // The 'building' layer in the Mapbox Streets
-                // vector tileset contains building height data
-                // from OpenStreetMap.
-                this.map.addLayer(
-                    {
-                        id: "add-3d-buildings",
-                        source: "composite",
-                        "source-layer": "building",
-                        filter: ["==", "extrude", "true"],
-                        type: "fill-extrusion",
-                        minzoom: 15,
-                        transition: {
-                            duration: 300,
-                            delay: 0,
-                        },
-                        paint: {
-                            "fill-extrusion-color": "#aaa",
-
-                            // Use an 'interpolate' expression to
-                            // add a smooth transition effect to
-                            // the buildings as the user zooms in.
-                            "fill-extrusion-height": [
-                                "interpolate",
-                                ["linear"],
-                                ["zoom"],
-                                15,
-                                0,
-                                15.05,
-                                ["get", "height"],
-                            ],
-                            "fill-extrusion-base": [
-                                "interpolate",
-                                ["linear"],
-                                ["zoom"],
-                                15,
-                                0,
-                                15.05,
-                                ["get", "min_height"],
-                            ],
-                            "fill-extrusion-opacity": 0.6,
-                        },
-                    },
-                    labelLayerId
-                );
-
-                this.addPolygon();
-            });
-
+        initSearch() {
             this.search = this.$search.autofill({
                 accessToken: this.access_token,
                 options: { country: "us" },
@@ -201,7 +147,71 @@ export default {
             });
         },
 
+        /*init3D() {
+            // Insert the layer beneath any symbol layer.
+            const layers = this.map.getStyle().layers;
+            const labelLayerId = layers.find(
+                (layer) => layer.type === "symbol" && layer.layout["text-field"]
+            ).id;
+
+            // The 'building' layer in the Mapbox Streets
+            // vector tileset contains building height data
+            // from OpenStreetMap.
+            this.map.addLayer(
+                {
+                    id: "add-3d-buildings",
+                    source: "composite",
+                    "source-layer": "building",
+                    filter: ["==", "extrude", "true"],
+                    type: "fill-extrusion",
+                    minzoom: 15,
+                    transition: {
+                        duration: 300,
+                        delay: 0,
+                    },
+                    paint: {
+                        "fill-extrusion-color": "#aaa",
+
+                        // Use an 'interpolate' expression to
+                        // add a smooth transition effect to
+                        // the buildings as the user zooms in.
+                        "fill-extrusion-height": [
+                            "interpolate",
+                            ["linear"],
+                            ["zoom"],
+                            15,
+                            0,
+                            15.05,
+                            ["get", "height"],
+                        ],
+                        "fill-extrusion-base": [
+                            "interpolate",
+                            ["linear"],
+                            ["zoom"],
+                            15,
+                            0,
+                            15.05,
+                            ["get", "min_height"],
+                        ],
+                        "fill-extrusion-opacity": 0.6,
+                    },
+                },
+                labelLayerId
+            );
+        },*/
+
+
+
         addPolygon() {
+
+            let exampleArray = [
+                [-117.074993,33.169305],
+                [-117.07489,33.169303],
+                [-117.074884,33.169519],
+                [-117.074987,33.169521],
+                [-117.074993,33.169305]
+            ]
+
             this.map.addSource("maine", {
                 type: "geojson",
                 data: {
@@ -210,18 +220,12 @@ export default {
                         type: "Polygon",
                         // These coordinates outline Maine.
                         coordinates: [
-                            [
-                                [-117.04032221565436,32.56788775850487],
-                                [-117.04047227600599,32.56772503030933],
-                                [-117.04145086617561,32.562454274516284],
-                                [-117.03323380160447,32.562619119624316],
-                                [-117.028235431521,32.56763679941878]
-                            ],
+                        this.geojsonArrays
                         ],
                     },
                 },
             });
-
+            
             // Add a new layer to visualize the polygon.
             this.map.addLayer({
                 id: "maine",
@@ -246,6 +250,22 @@ export default {
             });
         },
 
+        initPolygonDraw() {
+            this.draw = new this.$MapboxDraw({
+                displayControlsDefault: false,
+                // Select which mapbox-gl-draw control buttons to add to the map.
+                controls: {
+                    polygon: true,
+                    trash: true,
+                },
+                // Set mapbox-gl-draw to draw by default.
+                // The user does not have to click the polygon control button first.
+                defaultMode: "draw_polygon",
+            });
+
+            this.map.addControl(this.draw);
+        },
+
         async getAddress() {
             let params = {
                 lat: this.coordinates.lat,
@@ -253,22 +273,28 @@ export default {
                 access_token: this.access_token,
             };
             await this.$store.dispatch("places/get", params);
-
-            this.form.address =
-                this.places[0].address + " " + this.places[0].text;
-
-            this.form.city = this.places[0].context[2].text;
-            this.form.state = this.places[0].context[3].short_code;
-            this.form.country = this.places[0].context[4].short_code;
             console.log(this.places);
+
+            this.form.address = this.places[0].place_name;
+
+            /*this.form.city = this.places[0].context[2].text;
+            this.form.state = this.places[0].context[3].short_code;
+            this.form.country = this.places[0].context[4].short_code;*/
         },
+
+        filterData(){
+            this.geojson.forEach(item => {
+                let itemArray = [item.lng,item.lat];
+                this.geojsonArrays.push(itemArray);
+            });
+            console.log(this.geojsonArrays);
+        }
     },
 
     watch: {
         coordinates: {
             deep: true,
             handler(value, old) {
-                console.log(this.marker.getLngLat())
                 this.marker.setLngLat(this.coordinates);
                 this.map.easeTo({
                     center: this.coordinates,
@@ -276,21 +302,9 @@ export default {
                     duration: 2500,
                     curve: 2,
                 });
+                console.log(this.marker.getLngLat());
             },
         },
-        /*search: {
-            deep: true,
-            handler(value, old) {
-                console.log(value);
-                this.map.easeTo({
-                    center: this.coordinates,
-                    zoom: 15,
-                    speed: 2,
-                    duration: 2500,
-                    curve: 2,
-                });
-            },
-        },*/
     },
 };
 </script>
