@@ -37,6 +37,7 @@
 </template>
 
 <script>
+import { mapGetters } from "vuex";
 export default {
     data() {
         return {
@@ -46,8 +47,8 @@ export default {
             marker: {},
             search: {},
             coordinates: {
-                lat: 32.57931,
-                lng: -117.0839,
+                lat: 32.5665,
+                lng: -117.0235,
             },
             form: {
                 address: null,
@@ -61,6 +62,12 @@ export default {
 
     mounted() {
         this.createMap();
+    },
+
+    computed: {
+        ...mapGetters({
+            places: "places/places",
+        }),
     },
 
     methods: {
@@ -117,15 +124,6 @@ export default {
                 this.getAddress();
             });
 
-            let geocoder = new this.$MapboxGeocoder({
-                accessToken: this.access_token,
-                mapboxgl: this.map,
-                types: "country, region ,postcode, district, place, locality ,neighborhood ,address",
-                reverseGeocode: true,
-            });
-            this.map.addControl(geocoder);
-            //console.log(geocoder);
-
             this.map.on("load", () => {
                 // Insert the layer beneath any symbol layer.
                 const layers = this.map.getStyle().layers;
@@ -178,6 +176,8 @@ export default {
                     },
                     labelLayerId
                 );
+
+                this.addPolygon();
             });
 
             this.search = this.$search.autofill({
@@ -201,17 +201,66 @@ export default {
             });
         },
 
+        addPolygon() {
+            this.map.addSource("maine", {
+                type: "geojson",
+                data: {
+                    type: "Feature",
+                    geometry: {
+                        type: "Polygon",
+                        // These coordinates outline Maine.
+                        coordinates: [
+                            [
+                                [-117.04032221565436,32.56788775850487],
+                                [-117.04047227600599,32.56772503030933],
+                                [-117.04145086617561,32.562454274516284],
+                                [-117.03323380160447,32.562619119624316],
+                                [-117.028235431521,32.56763679941878]
+                            ],
+                        ],
+                    },
+                },
+            });
+
+            // Add a new layer to visualize the polygon.
+            this.map.addLayer({
+                id: "maine",
+                type: "fill",
+                source: "maine", // reference the data source
+                layout: {},
+                paint: {
+                    "fill-color": "#0080ff", // blue color fill
+                    "fill-opacity": 0.5,
+                },
+            });
+            // Add a black outline around the polygon.
+            this.map.addLayer({
+                id: "outline",
+                type: "line",
+                source: "maine",
+                layout: {},
+                paint: {
+                    "line-color": "#000",
+                    "line-width": 3,
+                },
+            });
+        },
+
         async getAddress() {
-            let response = await this.$axios.get(
-                "https://api.mapbox.com/geocoding/v5/mapbox.places/" +
-                    this.coordinates.lng +
-                    "," +
-                    this.coordinates.lat +
-                    ".json?access_token=" +
-                    this.access_token
-            );
-            console.log(response.data.features);
-            this.form.address = response.data.features[0].address + ' ' + response.data.features[0].text;
+            let params = {
+                lat: this.coordinates.lat,
+                lng: this.coordinates.lng,
+                access_token: this.access_token,
+            };
+            await this.$store.dispatch("places/get", params);
+
+            this.form.address =
+                this.places[0].address + " " + this.places[0].text;
+
+            this.form.city = this.places[0].context[2].text;
+            this.form.state = this.places[0].context[3].short_code;
+            this.form.country = this.places[0].context[4].short_code;
+            console.log(this.places);
         },
     },
 
@@ -219,6 +268,7 @@ export default {
         coordinates: {
             deep: true,
             handler(value, old) {
+                console.log(this.marker.getLngLat())
                 this.marker.setLngLat(this.coordinates);
                 this.map.easeTo({
                     center: this.coordinates,
@@ -243,5 +293,4 @@ export default {
         },*/
     },
 };
-//drag marker an update inputs
 </script>
