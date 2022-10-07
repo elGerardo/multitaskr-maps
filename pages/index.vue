@@ -9,6 +9,8 @@
                 v-model="form.address"
             />
             <b-button @click="initPolygonDraw()">Draw Polygon</b-button>
+            <b-button @click="map.setStyle('mapbox://styles/javy3r18/cl8yrxo04000014py4v4pmavh')">Javier Style</b-button>
+            <b-button @click="map.setStyle('mapbox://styles/elgerardo/cl8yrf6l1000e15o68btt9hgi')">Me Style</b-button>
             <!--<input
                 name="apartment"
                 placeholder="apartment"
@@ -50,8 +52,8 @@ export default {
             search: {},
             draw: {},
             coordinates: {
-                lat: 32.5665,
-                lng: -117.0235,
+                lat: 33.16944,
+                lng: -117.07504,
             },
             form: {
                 address: null,
@@ -67,7 +69,6 @@ export default {
     mounted() {
         this.createMap();
         this.filterData();
-        console.log(this.geojson);
     },
 
     computed: {
@@ -200,8 +201,6 @@ export default {
             );
         },*/
 
-
-
         addPolygon() {
 
             let exampleArray = [
@@ -273,7 +272,6 @@ export default {
                 access_token: this.access_token,
             };
             await this.$store.dispatch("places/get", params);
-            console.log(this.places);
 
             this.form.address = this.places[0].place_name;
 
@@ -287,7 +285,6 @@ export default {
                 let itemArray = [item.lng,item.lat];
                 this.geojsonArrays.push(itemArray);
             });
-            console.log(this.geojsonArrays);
         }
     },
 
@@ -302,7 +299,6 @@ export default {
                     duration: 2500,
                     curve: 2,
                 });
-                console.log(this.marker.getLngLat());
             },
         },
     },
