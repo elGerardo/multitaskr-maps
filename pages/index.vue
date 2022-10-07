@@ -9,8 +9,30 @@
                 v-model="form.address"
             />
             <b-button @click="initPolygonDraw()">Draw Polygon</b-button>
-            <b-button @click="map.setStyle('mapbox://styles/javy3r18/cl8yrxo04000014py4v4pmavh')">Javier Style</b-button>
-            <b-button @click="map.setStyle('mapbox://styles/elgerardo/cl8yrf6l1000e15o68btt9hgi')">Me Style</b-button>
+            <b-button
+                @click="
+                    map.setStyle(
+                        'mapbox://styles/elgerardo/cl8yrf6l1000e15o68btt9hgi'
+                    )
+                "
+                >Default Style</b-button
+            >
+            <b-button
+                @click="
+                    map.setStyle(
+                        'mapbox://styles/javy3r18/cl8yrxo04000014py4v4pmavh'
+                    )
+                "
+                >Multitaskr Style</b-button
+            >
+            <b-button
+                @click="
+                    map.setStyle(
+                        'mapbox://styles/soloskilos/cl8ywrz0j000l14mrphfgsifg'
+                    )
+                "
+                >Satellite</b-button
+            >
             <!--<input
                 name="apartment"
                 placeholder="apartment"
@@ -109,6 +131,8 @@ export default {
             this.map.on("load", () => {
                 //this.init3D();
                 this.addPolygon();
+
+//                this.map.on("style.load", this.addPolygon());
             });
         },
 
@@ -202,34 +226,29 @@ export default {
         },*/
 
         addPolygon() {
+            
+            if (this.map.getLayer("outline")) map.removeLayer("outline");
+            if (this.map.getLayer("maine")) map.removeLayer("maine");
+            if (this.map.getSource("polygonSource"))
+                map.removeSource("polygonSource");
 
-            let exampleArray = [
-                [-117.074993,33.169305],
-                [-117.07489,33.169303],
-                [-117.074884,33.169519],
-                [-117.074987,33.169521],
-                [-117.074993,33.169305]
-            ]
-
-            this.map.addSource("maine", {
+            this.map.addSource("polygonSource", {
                 type: "geojson",
                 data: {
                     type: "Feature",
                     geometry: {
                         type: "Polygon",
                         // These coordinates outline Maine.
-                        coordinates: [
-                        this.geojsonArrays
-                        ],
+                        coordinates: [this.geojsonArrays],
                     },
                 },
             });
-            
+
             // Add a new layer to visualize the polygon.
             this.map.addLayer({
                 id: "maine",
                 type: "fill",
-                source: "maine", // reference the data source
+                source: "polygonSource", // reference the data source
                 layout: {},
                 paint: {
                     "fill-color": "#0080ff", // blue color fill
@@ -240,7 +259,7 @@ export default {
             this.map.addLayer({
                 id: "outline",
                 type: "line",
-                source: "maine",
+                source: "polygonSource",
                 layout: {},
                 paint: {
                     "line-color": "#000",
@@ -280,12 +299,12 @@ export default {
             this.form.country = this.places[0].context[4].short_code;*/
         },
 
-        filterData(){
-            this.geojson.forEach(item => {
-                let itemArray = [item.lng,item.lat];
+        filterData() {
+            this.geojson.forEach((item) => {
+                let itemArray = [item.lng, item.lat];
                 this.geojsonArrays.push(itemArray);
             });
-        }
+        },
     },
 
     watch: {
