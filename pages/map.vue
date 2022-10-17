@@ -11,11 +11,11 @@
             "
             >Menu</b-button
         >
-        <b-sidebar id="sidebar-menu" style="z-index:1">
+        <b-sidebar id="sidebar-menu" style="z-index: 1">
             <form>
                 <label>Search</label>
                 <input
-                    style="width: 300px;"
+                    style="width: 300px"
                     name="address"
                     placeholder="address"
                     autocomplete="shipping address-line1"
@@ -109,7 +109,7 @@ export default {
         return {
             access_token:
                 "pk.eyJ1IjoiZWxnZXJhcmRvIiwiYSI6ImNsOG90NjFtMzFucG0zeWw1YWRheTV5ZmYifQ.87BCgCSXpjLIHkqGsWUW7g",
-            mapStyle: "mapbox://styles/soloskilos/cl8s8ldp4000w15phd0pcw50r",
+            mapStyle: "mapbox://styles/elgerardo/cl9d3ovzq000115ubx8rs0flv",
             config: {
                 zoom: 17,
             },
@@ -119,8 +119,8 @@ export default {
             draw: {},
             popup: {},
             coordinates: {
-                lat: this.$route.query.lat,
-                lng: this.$route.query.lng,
+                lat: 32.710708,
+                lng: -117.129671,
             },
             form: {
                 address: null,
@@ -193,10 +193,17 @@ export default {
                 closeOnClick: false,
             });
 
+            this.map.on("mouseenter", "sandiego-parcels", (e) => {
+                let content = this.map.queryRenderedFeatures(e.point,{
+                    layers:["sandiego-parcels"]
+                })
+                console.log(content);
+            });
+
             this.map.on("mouseenter", "building", (e) => {
                 this.popup
                     .setLngLat(e.lngLat)
-                    .setHTML("Anithing...")
+                    .setHTML("Anything...")
                     .addTo(this.map);
 
                 if (this.currentBuildingId != e.features[0].id) {
@@ -416,8 +423,6 @@ export default {
                 });
                 this.getPolygons(this.coordinates, true);
             });
-
-
         },
 
         initPolygonDraw() {
@@ -628,12 +633,12 @@ export default {
 };
 </script>
 <style>
-mapbox-search-listbox{
+mapbox-search-listbox {
     position: absolute;
     z-index: 10;
 }
 
-.mbx183d3cf5--MapboxSearch{
+.mbx183d3cf5--MapboxSearch {
     position: absolute;
     z-index: 2;
 }
