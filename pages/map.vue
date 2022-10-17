@@ -194,18 +194,17 @@ export default {
             });
 
             this.map.on("mouseenter", "sandiego-parcels", (e) => {
-                let content = this.map.queryRenderedFeatures(e.point,{
-                    layers:["sandiego-parcels"]
-                })
-                console.log(content);
+                let content = this.map.queryRenderedFeatures(e.point, {
+                    layers: ["sandiego-parcels"],
+                });
+                this.popup
+                    .setLngLat(e.lngLat)
+                    .setHTML(content[0].properties.address)
+                    .addTo(this.map);
+                console.log();
             });
 
             this.map.on("mouseenter", "building", (e) => {
-                this.popup
-                    .setLngLat(e.lngLat)
-                    .setHTML("Anything...")
-                    .addTo(this.map);
-
                 if (this.currentBuildingId != e.features[0].id) {
                     this.currentBuildingId = e.features[0].id;
                     this.getPolygons(e.lngLat, false);
