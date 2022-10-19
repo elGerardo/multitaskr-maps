@@ -100,6 +100,8 @@
 
 <script>
 import { mapGetters } from "vuex";
+4;
+import { debounce } from "lodash";
 export default {
     async fetch({ store, route }) {
         await store.dispatch("polygons/find", route.query);
@@ -122,8 +124,6 @@ export default {
             coordinates: {
                 lat: 32.71462470879952,
                 lng: -117.13081795279766,
-                //lat: this.$route.query.lat,
-                //lng: this.$route.query.lng
             },
             form: {
                 address: null,
@@ -132,6 +132,8 @@ export default {
                 state: null,
                 country: null,
             },
+            urlSource: "martoast.county_sandiego_city_sandiego",
+            params: {},
             currentPolygonId: 0,
             hoveredStateId: null,
         };
@@ -152,10 +154,16 @@ export default {
     methods: {
         setupMap() {
             this.initMap();
-            this.initMarker();
             this.initSearch();
+
             //first time the page is loaded
             this.getPolygons(this.coordinates, true);
+
+            //Parcel's Tooltips
+            this.initTooltip();
+
+            //Hover to parcels
+            this.initHoverParcel();
         },
 
         initMap() {
@@ -186,12 +194,6 @@ export default {
             this.map.on("zoom", (e) => {
                 this.config.zoom = this.map.getZoom();
             });
-
-            //Parcel's Tooltips
-            this.initTooltip();
-
-            //Hover to parcels
-            this.initHoverParcel();
         },
 
         initTooltip() {
@@ -214,7 +216,7 @@ export default {
             this.map.on("load", (e) => {
                 this.map.addSource("parcel_source", {
                     type: "vector",
-                    url: "mapbox://elgerardo.sandiegoparcels",
+                    url: "mapbox://martoast.county_sandiego_city_sandiego",
                     generateId: true,
                 });
 
@@ -222,16 +224,16 @@ export default {
                     id: "sandiego_parcels",
                     generateId: true,
                     source: "parcel_source",
-                    "source-layer": "sandiego_parcels",
+                    "source-layer": "county_sandiego_city_sandiego",
                     type: "fill",
                     paint: {
-                        "fill-color": "rgba(66,100,251,0.1)",
-                        "fill-outline-color": "rgba(66,100,251,1)",
+                        "fill-color": "rgba(133,8,142,0.1)",
+                        "fill-outline-color": "rgba(133,8,142,1)",
                         "fill-opacity": [
                             "case",
                             ["boolean", ["feature-state", "hover"], false],
                             1,
-                            0,
+                            0.5,
                         ],
                     },
                 });
@@ -239,26 +241,39 @@ export default {
                 this.map.moveLayer("sandiego_parcels", "building-extrusion");
 
                 this.map.on("mousemove", "sandiego_parcels", (e) => {
-                    if (e.features.length > 0) {
-                        if (hoveredStateId !== null) {
+                    if (this.currentPolygonId != e.features[0].id) {
+                        //properties
+                        this.currentPolygonId = e.features[0].id;
+
+                        this.params = {
+                            lat: e.lngLat.lat,
+                            lng: e.lngLat.lng,
+                            access_token: this.access_token,
+                        };
+
+                        if (e.features.length > 0) {
+                            if (hoveredStateId !== null) {
+                                this.map.setFeatureState(
+                                    {
+                                        source: "parcel_source",
+                                        id: hoveredStateId,
+                                        sourceLayer:
+                                            "county_sandiego_city_sandiego",
+                                    },
+                                    { hover: false }
+                                );
+                            }
+                            hoveredStateId = e.features[0].id;
                             this.map.setFeatureState(
                                 {
                                     source: "parcel_source",
                                     id: hoveredStateId,
-                                    sourceLayer: "sandiego_parcels",
+                                    sourceLayer:
+                                        "county_sandiego_city_sandiego",
                                 },
-                                { hover: false }
+                                { hover: true }
                             );
                         }
-                        hoveredStateId = e.features[0].id;
-                        this.map.setFeatureState(
-                            {
-                                source: "parcel_source",
-                                id: hoveredStateId,
-                                sourceLayer: "sandiego_parcels",
-                            },
-                            { hover: true }
-                        );
                     }
                 });
 
@@ -270,7 +285,7 @@ export default {
                             {
                                 source: "parcel_source",
                                 id: hoveredStateId,
-                                sourceLayer: "sandiego_parcels",
+                                sourceLayer: "county_sandiego_city_sandiego",
                             },
                             { hover: false }
                         );
@@ -278,15 +293,6 @@ export default {
                     hoveredStateId = null;
                 });
             });
-        },
-
-        initMarker() {
-            this.marker = new this.$mapboxgl.Marker({
-                color: "blue",
-                draggable: true,
-            })
-                .setLngLat([this.coordinates.lng, this.coordinates.lat])
-                .addTo(this.map);
         },
 
         initSearch() {
@@ -366,7 +372,7 @@ export default {
                 source: "polygonSourceSelected", // reference the data source
                 layout: {},
                 paint: {
-                    "fill-color": "#4d04af", // blue color fill
+                    "fill-color": "rgb(133,8,142)", // blue color fill
                     "fill-opacity": 1,
                 },
             });
@@ -377,7 +383,7 @@ export default {
                 source: "polygonSourceSelected",
                 layout: {},
                 paint: {
-                    "line-color": "#4d04af",
+                    "line-color": "rgba(133,8,142,1)",
                     "line-width": 3,
                 },
             });
@@ -398,7 +404,7 @@ export default {
 
             const center = bounds;
 
-            this.marker.setLngLat(center.getCenter());
+            //this.marker.setLngLat(center.getCenter());
 
             this.map.easeTo({
                 center: center.getCenter(),
@@ -462,6 +468,15 @@ export default {
                 },
                 labelLayerId
             );
+        },
+
+        initMarker_not_working() {
+            this.marker = new this.$mapboxgl.Marker({
+                color: "blue",
+                draggable: true,
+            })
+                .setLngLat([this.coordinates.lng, this.coordinates.lat])
+                .addTo(this.map);
         },
 
         initHoverBuilding_not_working(map) {
@@ -663,6 +678,13 @@ export default {
                 });
             },
         },
+
+        params: debounce(async function (value, old) {
+            //fetch
+            console.log("debouncing...");
+            await this.$store.dispatch("places/get", value);
+            console.log(this.polygon);
+        }, 600),
     },
 };
 </script>

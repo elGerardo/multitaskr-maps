@@ -34,8 +34,6 @@
 </template>
 <script>
 import Vue from "vue";
-
-import { mapGetters } from "vuex";
 import { BootstrapVue, BootstrapVueIcons } from "bootstrap-vue";
 Vue.use(BootstrapVue);
 Vue.use(BootstrapVueIcons);
@@ -75,13 +73,10 @@ export default {
                     event.detail.features[0].geometry.coordinates[1];
                 this.coordinates.lng =
                     event.detail.features[0].geometry.coordinates[0];
-                //this.loadSingleBuilding();
             });
         },
 
         onSubmit() {
-            console.log("submiting...");
-
             this.$router.push({
                 path: "map",
                 query: this.coordinates,
