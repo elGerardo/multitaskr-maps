@@ -35,7 +35,7 @@
                                 (mapStyle =
                                     'mapbox://styles/elgerardo/cl8yrf6l1000e15o68btt9hgi'),
                                     map.remove(),
-                                    createMap()
+                                    setupMap()
                             "
                             variant="info"
                             >Default</b-button
@@ -49,7 +49,7 @@
                                 (mapStyle =
                                     'mapbox://styles/soloskilos/cl8ywrz0j000l14mrphfgsifg'),
                                     map.remove(),
-                                    createMap()
+                                    setupMap()
                             "
                             variant="info"
                             >Satellite</b-button
@@ -61,7 +61,7 @@
                                 (mapStyle =
                                     'mapbox://styles/soloskilos/cl8s8ldp4000w15phd0pcw50r'),
                                     map.remove(),
-                                    createMap()
+                                    setupMap()
                             "
                             variant="info"
                             >Default 2</b-button
@@ -118,9 +118,12 @@ export default {
             search: {},
             draw: {},
             popup: {},
+            geojsonArrays: [],
             coordinates: {
-                lat: 32.710708,
-                lng: -117.129671,
+                lat: 32.71462470879952,
+                lng: -117.13081795279766,
+                //lat: this.$route.query.lat,
+                //lng: this.$route.query.lng
             },
             form: {
                 address: null,
@@ -129,15 +132,13 @@ export default {
                 state: null,
                 country: null,
             },
-            geojsonArrays: [],
-            currentBuildingId: 0,
             currentPolygonId: 0,
             hoveredStateId: null,
         };
     },
 
     mounted() {
-        this.createMap();
+        this.setupMap();
     },
 
     computed: {
@@ -149,16 +150,16 @@ export default {
     },
 
     methods: {
-        createMap() {
+        setupMap() {
             this.initMap();
             this.initMarker();
             this.initSearch();
-            this.initHoverBuilding(this.map);
             //first time the page is loaded
             this.getPolygons(this.coordinates, true);
         },
 
         initMap() {
+            //new map
             this.$mapboxgl.accessToken = this.access_token;
             this.map = new this.$mapboxgl.Map({
                 container: "map",
@@ -172,6 +173,7 @@ export default {
                 attributionControl: false,
             });
 
+            //fetch to API when make a click
             this.map.on("click", (e) => {
                 this.coordinates.lat = parseFloat(e.lngLat.lat);
                 this.coordinates.lng = parseFloat(e.lngLat.lng);
@@ -180,107 +182,289 @@ export default {
                 this.getPolygons(e.lngLat, true);
             });
 
+            //zoom event
             this.map.on("zoom", (e) => {
                 this.config.zoom = this.map.getZoom();
             });
 
-            this.map.on("load", () => {
-                //this.initHoverPolygon();
-            });
+            //Parcel's Tooltips
+            this.initTooltip();
 
+            //Hover to parcels
+            this.initHoverParcel();
+        },
+
+        initTooltip() {
             this.popup = new this.$mapboxgl.Popup({
                 closeButton: false,
                 closeOnClick: false,
             });
 
             this.map.on("mouseenter", "sandiego-parcels", (e) => {
-                let content = this.map.queryRenderedFeatures(e.point, {
-                    layers: ["sandiego-parcels"],
-                });
                 this.popup
                     .setLngLat(e.lngLat)
-                    .setHTML(content[0].properties.address)
+                    .setHTML(e.features[0].properties.address)
                     .addTo(this.map);
-                console.log();
-            });
-
-            this.map.on("mouseenter", "building", (e) => {
-                if (this.currentBuildingId != e.features[0].id) {
-                    this.currentBuildingId = e.features[0].id;
-                    this.getPolygons(e.lngLat, false);
-                }
-            });
-
-            this.map.on("mouseleave", "building", () => {
-                this.map.getCanvas().style.cursor = "";
-                this.popup.remove();
             });
         },
 
-        initHoverPolygon() {
-            this.map.addSource("mapbox-streets", {
-                type: "vector",
-                url: "mapbox://mapbox.mapbox-streets-v8",
-                generateId: true,
-            });
+        initHoverParcel() {
+            let hoveredStateId = null;
 
-            this.map.addLayer({
-                id: "building-fill",
-                type: "fill",
-                "source-layer": "building",
-                source: "mapbox-streets",
-                layout: {},
-                paint: {
-                    "fill-color": "#aaa",
-                    "fill-opacity": [
-                        "case",
-                        ["boolean", ["feature-state", "hover"], false],
-                        0,
-                        0,
-                    ],
-                },
-            });
+            this.map.on("load", (e) => {
+                this.map.addSource("parcel_source", {
+                    type: "vector",
+                    url: "mapbox://elgerardo.sandiegoparcels",
+                    generateId: true,
+                });
 
-            this.map.on("mousemove", "building", (e) => {
-                if (e.features.length > 0) {
-                    if (this.hoveredStateId !== null) {
+                this.map.addLayer({
+                    id: "sandiego_parcels",
+                    generateId: true,
+                    source: "parcel_source",
+                    "source-layer": "sandiego_parcels",
+                    type: "fill",
+                    paint: {
+                        "fill-color": "rgba(66,100,251,0.1)",
+                        "fill-outline-color": "rgba(66,100,251,1)",
+                        "fill-opacity": [
+                            "case",
+                            ["boolean", ["feature-state", "hover"], false],
+                            1,
+                            0,
+                        ],
+                    },
+                });
+
+                this.map.moveLayer("sandiego_parcels", "building-extrusion");
+
+                this.map.on("mousemove", "sandiego_parcels", (e) => {
+                    if (e.features.length > 0) {
+                        if (hoveredStateId !== null) {
+                            this.map.setFeatureState(
+                                {
+                                    source: "parcel_source",
+                                    id: hoveredStateId,
+                                    sourceLayer: "sandiego_parcels",
+                                },
+                                { hover: false }
+                            );
+                        }
+                        hoveredStateId = e.features[0].id;
                         this.map.setFeatureState(
                             {
-                                source: "mapbox-streets",
-                                sourceLayer: "building",
-                                id: this.hoveredStateId,
+                                source: "parcel_source",
+                                id: hoveredStateId,
+                                sourceLayer: "sandiego_parcels",
+                            },
+                            { hover: true }
+                        );
+                    }
+                });
+
+                // When the mouse leaves the state-fill layer, update the feature state of the
+                // previously hovered feature.
+                this.map.on("mouseleave", "sandiego_parcels", () => {
+                    if (hoveredStateId !== null) {
+                        this.map.setFeatureState(
+                            {
+                                source: "parcel_source",
+                                id: hoveredStateId,
+                                sourceLayer: "sandiego_parcels",
                             },
                             { hover: false }
                         );
                     }
-                    this.hoveredStateId = e.features[0].id;
-                    this.map.setFeatureState(
-                        {
-                            source: "mapbox-streets",
-                            sourceLayer: "building",
-                            id: this.hoveredStateId,
-                        },
-                        { hover: true }
-                    );
-                }
-            });
-
-            this.map.on("mouseleave", "building", () => {
-                if (this.hoveredStateId !== null) {
-                    this.map.setFeatureState(
-                        {
-                            source: "mapbox-streets",
-                            sourceLayer: "building",
-                            id: this.hoveredStateId,
-                        },
-                        { hover: false }
-                    );
-                }
-                this.hoveredStateId = null;
+                    hoveredStateId = null;
+                });
             });
         },
 
-        initHoverBuilding(map) {
+        initMarker() {
+            this.marker = new this.$mapboxgl.Marker({
+                color: "blue",
+                draggable: true,
+            })
+                .setLngLat([this.coordinates.lng, this.coordinates.lat])
+                .addTo(this.map);
+        },
+
+        initSearch() {
+            this.search = this.$search.autofill({
+                accessToken: this.access_token,
+                options: { country: "us" },
+                confirmOnBrowserAutofill: true,
+            });
+
+            //watch this function
+
+            this.search.addEventListener("retrieve", (event) => {
+                this.coordinates.lat =
+                    event.detail.features[0].geometry.coordinates[1];
+                this.coordinates.lng =
+                    event.detail.features[0].geometry.coordinates[0];
+                this.map.easeTo({
+                    center: this.coordinates,
+                    speed: 2,
+                    duration: 2500,
+                    curve: 2,
+                });
+                //fetch to API
+                this.getPolygons(this.coordinates, true);
+            });
+        },
+
+        //fetch's
+        async getAddress() {
+            let params = {
+                lat: this.coordinates.lat,
+                lng: this.coordinates.lng,
+                access_token: this.access_token,
+            };
+            await this.$store.dispatch("places/get", params);
+            this.form.address = this.places[0].place_name;
+        },
+
+        async getPolygons(lngLat, selected) {
+            await this.$store.dispatch("polygons/find", lngLat);
+
+            let itemsArrays = JSON.parse(this.polygon.geojson).coordinates;
+            this.geojsonArrays = [];
+
+            //fix response polygons to the polygonSource array
+            itemsArrays[0].forEach((item) => {
+                let itemArray = [item[1], item[0]];
+                this.geojsonArrays.push(itemArray);
+            });
+
+            //bounds to get parcel center
+            this.centeredView(this.geojsonArrays);
+
+            if (this.map.getLayer("outlineSelected"))
+                this.map.removeLayer("outlineSelected");
+            if (this.map.getLayer("maineSelected"))
+                this.map.removeLayer("maineSelected");
+            if (this.map.getSource("polygonSourceSelected"))
+                this.map.removeSource("polygonSourceSelected");
+
+            this.map.addSource("polygonSourceSelected", {
+                type: "geojson",
+                data: {
+                    type: "Feature",
+                    geometry: {
+                        type: "Polygon",
+                        // These coordinates outline Maine.
+                        coordinates: [this.geojsonArrays],
+                    },
+                },
+            });
+
+            // Add a new layer to visualize the polygon.
+            this.map.addLayer({
+                id: "maineSelected",
+                type: "fill",
+                source: "polygonSourceSelected", // reference the data source
+                layout: {},
+                paint: {
+                    "fill-color": "#4d04af", // blue color fill
+                    "fill-opacity": 1,
+                },
+            });
+            // Add a black outline around the polygon.
+            this.map.addLayer({
+                id: "outlineSelected",
+                type: "line",
+                source: "polygonSourceSelected",
+                layout: {},
+                paint: {
+                    "line-color": "#4d04af",
+                    "line-width": 3,
+                },
+            });
+
+            this.map.moveLayer("maineSelected", "building-extrusion");
+            this.map.moveLayer("outlineSelected", "building-extrusion");
+        },
+
+        centeredView(coordinates) {
+            const bounds = new this.$mapboxgl.LngLatBounds(
+                coordinates[0],
+                coordinates[0]
+            );
+
+            for (const coord of coordinates) {
+                bounds.extend(coord);
+            }
+
+            const center = bounds;
+
+            this.marker.setLngLat(center.getCenter());
+
+            this.map.easeTo({
+                center: center.getCenter(),
+                speed: 2,
+                duration: 2500,
+                curve: 2,
+            });
+
+            this.map.fitBounds(bounds, {});
+        },
+
+        //not working methods
+        init3D_not_working() {
+            // Insert the layer beneath any symbol layer.
+            const layers = this.map.getStyle().layers;
+            const labelLayerId = layers.find(
+                (layer) => layer.type === "symbol" && layer.layout["text-field"]
+            ).id;
+
+            // The 'building' layer in the Mapbox Streets
+            // vector tileset contains building height data
+            // from OpenStreetMap.
+            this.map.addLayer(
+                {
+                    id: "add-3d-buildings",
+                    source: "composite",
+                    "source-layer": "building",
+                    filter: ["==", "extrude", "true"],
+                    type: "fill-extrusion",
+                    minzoom: 15,
+                    transition: {
+                        duration: 300,
+                        delay: 0,
+                    },
+                    paint: {
+                        "fill-extrusion-color": "#aaa",
+
+                        // Use an 'interpolate' expression to
+                        // add a smooth transition effect to
+                        // the buildings as the user zooms in.
+                        "fill-extrusion-height": [
+                            "interpolate",
+                            ["linear"],
+                            ["zoom"],
+                            15,
+                            0,
+                            15.05,
+                            ["get", "height"],
+                        ],
+                        "fill-extrusion-base": [
+                            "interpolate",
+                            ["linear"],
+                            ["zoom"],
+                            15,
+                            0,
+                            15.05,
+                            ["get", "min_height"],
+                        ],
+                        "fill-extrusion-opacity": 0.6,
+                    },
+                },
+                labelLayerId
+            );
+        },
+
+        initHoverBuilding_not_working(map) {
             this.map.on("style.load", function () {
                 const layers = map.getStyle().layers;
                 const labelLayerId = layers.find(
@@ -386,45 +570,74 @@ export default {
             });
         },
 
-        initMarker() {
-            this.marker = new this.$mapboxgl.Marker({
-                color: "blue",
-                draggable: true,
-            })
-                .setLngLat([this.coordinates.lng, this.coordinates.lat])
-                .addTo(this.map);
+        initHoverPolygon_not_working() {
+            if (this.map.getLayer("building-fill"))
+                this.map.removeLayer("building-fill");
+            if (this.map.getSource("mapbox-streets"))
+                this.map.removeSource("mapbox-streets");
+            this.map.addSource("mapbox-streets", {
+                type: "vector",
+                data: "mapbox://tileset-source/elgerardo/sandiegoparcels",
+                generateId: true,
+            });
 
-            this.marker.on("dragend", (event) => {
-                this.coordinates.lng = this.marker.getLngLat().lng;
-                this.coordinates.lat = this.marker.getLngLat().lat;
+            this.map.addLayer({
+                id: "building-fill",
+                type: "fill",
+                "source-layer": "sandiego_parcels",
+                source: "mapbox-streets",
+                layout: {},
+                paint: {
+                    "fill-color": "#aaa",
+                    "fill-opacity": [
+                        "case",
+                        ["boolean", ["feature-state", "hover"], false],
+                        0,
+                        0,
+                    ],
+                },
+            });
+
+            this.map.on("mousemove", "building", (e) => {
+                if (e.features.length > 0) {
+                    if (this.hoveredStateId !== null) {
+                        this.map.setFeatureState(
+                            {
+                                source: "mapbox-streets",
+                                sourceLayer: "building",
+                                id: this.hoveredStateId,
+                            },
+                            { hover: false }
+                        );
+                    }
+                    this.hoveredStateId = e.features[0].id;
+                    this.map.setFeatureState(
+                        {
+                            source: "mapbox-streets",
+                            sourceLayer: "building",
+                            id: this.hoveredStateId,
+                        },
+                        { hover: true }
+                    );
+                }
+            });
+
+            this.map.on("mouseleave", "building", () => {
+                if (this.hoveredStateId !== null) {
+                    this.map.setFeatureState(
+                        {
+                            source: "mapbox-streets",
+                            sourceLayer: "building",
+                            id: this.hoveredStateId,
+                        },
+                        { hover: false }
+                    );
+                }
+                this.hoveredStateId = null;
             });
         },
 
-        initSearch() {
-            this.search = this.$search.autofill({
-                accessToken: this.access_token,
-                options: { country: "us" },
-                confirmOnBrowserAutofill: true,
-            });
-
-            //watch this function
-
-            this.search.addEventListener("retrieve", (event) => {
-                this.coordinates.lat =
-                    event.detail.features[0].geometry.coordinates[1];
-                this.coordinates.lng =
-                    event.detail.features[0].geometry.coordinates[0];
-                this.map.easeTo({
-                    center: this.coordinates,
-                    speed: 2,
-                    duration: 2500,
-                    curve: 2,
-                });
-                this.getPolygons(this.coordinates, true);
-            });
-        },
-
-        initPolygonDraw() {
+        initPolygonDraw_not_working() {
             this.draw = new this.$MapboxDraw({
                 displayControlsDefault: false,
                 // Select which mapbox-gl-draw control buttons to add to the map.
@@ -439,192 +652,14 @@ export default {
 
             this.map.addControl(this.draw);
         },
-
-        async getPolygons(lngLat, selected) {
-            await this.$store.dispatch("polygons/find", lngLat);
-            if (selected) {
-                let itemsArrays = JSON.parse(this.polygon.geojson).coordinates;
-                this.geojsonArrays = [];
-
-                //fix response polygons to the polygonSource array
-                itemsArrays[0].forEach((item) => {
-                    let itemArray = [item[1], item[0]];
-                    this.geojsonArrays.push(itemArray);
-                });
-
-                if (this.map.getLayer("outlineSelected"))
-                    this.map.removeLayer("outlineSelected");
-                if (this.map.getLayer("maineSelected"))
-                    this.map.removeLayer("maineSelected");
-                if (this.map.getSource("polygonSourceSelected"))
-                    this.map.removeSource("polygonSourceSelected");
-
-                this.map.addSource("polygonSourceSelected", {
-                    type: "geojson",
-                    data: {
-                        type: "Feature",
-                        geometry: {
-                            type: "Polygon",
-                            // These coordinates outline Maine.
-                            coordinates: [this.geojsonArrays],
-                        },
-                    },
-                });
-
-                // Add a new layer to visualize the polygon.
-                this.map.addLayer({
-                    id: "maineSelected",
-                    type: "fill",
-                    source: "polygonSourceSelected", // reference the data source
-                    layout: {},
-                    paint: {
-                        "fill-color": "#4d04af", // blue color fill
-                        "fill-opacity": 0.8,
-                    },
-                });
-                // Add a black outline around the polygon.
-                this.map.addLayer({
-                    id: "outlineSelected",
-                    type: "line",
-                    source: "polygonSourceSelected",
-                    layout: {},
-                    paint: {
-                        "line-color": "#4d04af",
-                        "line-width": 3,
-                    },
-                });
-            } else if (this.currentPolygonId != this.polygon.parcel_id) {
-                let itemsArrays = JSON.parse(this.polygon.geojson).coordinates;
-                this.geojsonArrays = [];
-
-                //fix response polygons to the polygonSource array
-                itemsArrays[0].forEach((item) => {
-                    let itemArray = [item[1], item[0]];
-                    this.geojsonArrays.push(itemArray);
-                });
-
-                if (this.map.getLayer("outlineHover"))
-                    this.map.removeLayer("outlineHover");
-                if (this.map.getLayer("maineHover"))
-                    this.map.removeLayer("maineHover");
-                if (this.map.getSource("polygonSourceHover"))
-                    this.map.removeSource("polygonSourceHover");
-
-                this.map.addSource("polygonSourceHover", {
-                    type: "geojson",
-                    data: {
-                        type: "Feature",
-                        geometry: {
-                            type: "Polygon",
-                            // These coordinates outline Maine.
-                            coordinates: [this.geojsonArrays],
-                        },
-                    },
-                });
-
-                // Add a new layer to visualize the polygon.
-                this.map.addLayer({
-                    id: "maineHover",
-                    type: "fill",
-                    source: "polygonSourceHover", // reference the data source
-                    layout: {},
-                    paint: {
-                        "fill-color": "#0080ff", // blue color fill
-                        "fill-opacity": 0.2,
-                    },
-                });
-                // Add a black outline around the polygon.
-                this.map.addLayer({
-                    id: "outlineHover",
-                    type: "line",
-                    source: "polygonSourceHover",
-                    layout: {},
-                    paint: {
-                        "line-color": "#000",
-                        "line-width": 3,
-                    },
-                });
-                this.currentPolygonId = this.polygon.parcel_id;
-            }
-        },
-
-        async getAddress() {
-            let params = {
-                lat: this.coordinates.lat,
-                lng: this.coordinates.lng,
-                access_token: this.access_token,
-            };
-            await this.$store.dispatch("places/get", params);
-            this.form.address = this.places[0].place_name;
-        },
-
-        init3D_not_working() {
-            // Insert the layer beneath any symbol layer.
-            const layers = this.map.getStyle().layers;
-            const labelLayerId = layers.find(
-                (layer) => layer.type === "symbol" && layer.layout["text-field"]
-            ).id;
-
-            // The 'building' layer in the Mapbox Streets
-            // vector tileset contains building height data
-            // from OpenStreetMap.
-            this.map.addLayer(
-                {
-                    id: "add-3d-buildings",
-                    source: "composite",
-                    "source-layer": "building",
-                    filter: ["==", "extrude", "true"],
-                    type: "fill-extrusion",
-                    minzoom: 15,
-                    transition: {
-                        duration: 300,
-                        delay: 0,
-                    },
-                    paint: {
-                        "fill-extrusion-color": "#aaa",
-
-                        // Use an 'interpolate' expression to
-                        // add a smooth transition effect to
-                        // the buildings as the user zooms in.
-                        "fill-extrusion-height": [
-                            "interpolate",
-                            ["linear"],
-                            ["zoom"],
-                            15,
-                            0,
-                            15.05,
-                            ["get", "height"],
-                        ],
-                        "fill-extrusion-base": [
-                            "interpolate",
-                            ["linear"],
-                            ["zoom"],
-                            15,
-                            0,
-                            15.05,
-                            ["get", "min_height"],
-                        ],
-                        "fill-extrusion-opacity": 0.6,
-                    },
-                },
-                labelLayerId
-            );
-        },
     },
 
     watch: {
         coordinates: {
             deep: true,
             handler(value, old) {
-                this.marker.setLngLat(this.coordinates);
                 this.$router.push({
                     query: this.coordinates,
-                });
-                this.map.easeTo({
-                    center: this.coordinates,
-                    speed: 2,
-                    duration: 2500,
-                    curve: 2,
                 });
             },
         },
@@ -632,6 +667,7 @@ export default {
 };
 </script>
 <style>
+/*Helps to the search works inside the sidebar*/
 mapbox-search-listbox {
     position: absolute;
     z-index: 10;
