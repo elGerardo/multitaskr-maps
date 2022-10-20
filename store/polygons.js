@@ -21,7 +21,7 @@ export const actions = {
                 params.lat +
                 ""
         );
-        console.log(response.data);
+
         commit("polygon", response.data);
     },
 };

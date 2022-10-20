@@ -21,7 +21,6 @@ export const actions = {
             params.lat +
             ".json?access_token=" +
             params.access_token);
-            console.log(response.data);
         commit("places", response.data.features);
     },
 };

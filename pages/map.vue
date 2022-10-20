@@ -100,7 +100,6 @@
 
 <script>
 import { mapGetters } from "vuex";
-4;
 import { debounce } from "lodash";
 export default {
     async fetch({ store, route }) {
@@ -132,9 +131,9 @@ export default {
                 state: null,
                 country: null,
             },
-            urlSource: "martoast.county_sandiego_city_sandiego",
-            params: {},
-            currentPolygonId: 0,
+            urlSource: "mapbox://martoast.citysandiego",
+            sourceLayer: "citysandiego",
+            parcelId: 0,
             hoveredStateId: null,
         };
     },
@@ -157,7 +156,7 @@ export default {
             this.initSearch();
 
             //first time the page is loaded
-            this.getPolygons(this.coordinates, true);
+            this.getPolygons(this.coordinates);
 
             //Parcel's Tooltips
             this.initTooltip();
@@ -187,7 +186,7 @@ export default {
                 this.coordinates.lng = parseFloat(e.lngLat.lng);
                 this.config.zoom = this.map.getZoom();
                 this.getAddress();
-                this.getPolygons(e.lngLat, true);
+                this.getPolygons(e.lngLat);
             });
 
             //zoom event
@@ -216,7 +215,7 @@ export default {
             this.map.on("load", (e) => {
                 this.map.addSource("parcel_source", {
                     type: "vector",
-                    url: "mapbox://martoast.county_sandiego_city_sandiego",
+                    url: this.urlSource,
                     generateId: true,
                 });
 
@@ -224,7 +223,7 @@ export default {
                     id: "sandiego_parcels",
                     generateId: true,
                     source: "parcel_source",
-                    "source-layer": "county_sandiego_city_sandiego",
+                    "source-layer": this.sourceLayer,
                     type: "fill",
                     paint: {
                         "fill-color": "rgba(133,8,142,0.1)",
@@ -241,15 +240,8 @@ export default {
                 this.map.moveLayer("sandiego_parcels", "building-extrusion");
 
                 this.map.on("mousemove", "sandiego_parcels", (e) => {
-                    if (this.currentPolygonId != e.features[0].id) {
-                        //properties
-                        this.currentPolygonId = e.features[0].id;
-
-                        this.params = {
-                            lat: e.lngLat.lat,
-                            lng: e.lngLat.lng,
-                            access_token: this.access_token,
-                        };
+                    if (this.parcelId != e.features[0].properties.parcel_id) {
+                        this.parcelId = e.features[0].properties.parcel_id;
 
                         if (e.features.length > 0) {
                             if (hoveredStateId !== null) {
@@ -257,8 +249,7 @@ export default {
                                     {
                                         source: "parcel_source",
                                         id: hoveredStateId,
-                                        sourceLayer:
-                                            "county_sandiego_city_sandiego",
+                                        sourceLayer: this.sourceLayer,
                                     },
                                     { hover: false }
                                 );
@@ -268,8 +259,7 @@ export default {
                                 {
                                     source: "parcel_source",
                                     id: hoveredStateId,
-                                    sourceLayer:
-                                        "county_sandiego_city_sandiego",
+                                    sourceLayer: this.sourceLayer,
                                 },
                                 { hover: true }
                             );
@@ -285,7 +275,7 @@ export default {
                             {
                                 source: "parcel_source",
                                 id: hoveredStateId,
-                                sourceLayer: "county_sandiego_city_sandiego",
+                                sourceLayer: this.sourceLayer,
                             },
                             { hover: false }
                         );
@@ -316,7 +306,7 @@ export default {
                     curve: 2,
                 });
                 //fetch to API
-                this.getPolygons(this.coordinates, true);
+                this.getPolygons(this.coordinates);
             });
         },
 
@@ -331,7 +321,7 @@ export default {
             this.form.address = this.places[0].place_name;
         },
 
-        async getPolygons(lngLat, selected) {
+        async getPolygons(lngLat) {
             await this.$store.dispatch("polygons/find", lngLat);
 
             let itemsArrays = JSON.parse(this.polygon.geojson).coordinates;
@@ -679,11 +669,10 @@ export default {
             },
         },
 
-        params: debounce(async function (value, old) {
+        parcelId: debounce(async function (value, old) {
             //fetch
             console.log("debouncing...");
-            await this.$store.dispatch("places/get", value);
-            console.log(this.polygon);
+            console.log(this.parcelId);
         }, 600),
     },
 };
