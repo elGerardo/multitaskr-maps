@@ -1,19 +1,7 @@
 <template>
     <div>
-        <b-button
-            v-b-toggle.sidebar-menu
-            style="
-                position: absolute;
-                top: 10px;
-                left: 10px;
-                z-index: 1;
-                background-color: #4d04af;
-            "
-            >Menu</b-button
-        >
-        <b-sidebar id="sidebar-menu" style="z-index: 1">
-            <form>
-                <label>Search</label>
+        <form class="py-2">
+            <div class="d-flex justify-content-center align-content-center">
                 <input
                     style="width: 300px"
                     name="address"
@@ -21,54 +9,56 @@
                     autocomplete="shipping address-line1"
                     v-model="form.address"
                 />
-                <b-row class="my-2">
-                    <b-col>
-                        <b-button
-                            @click="initPolygonDraw()"
-                            variant="outline-primary"
-                            >Draw Polygon</b-button
-                        >
-                    </b-col>
-                    <b-col>
-                        <b-button
-                            @click="
-                                (mapStyle =
-                                    'mapbox://styles/elgerardo/cl8yrf6l1000e15o68btt9hgi'),
-                                    map.remove(),
-                                    setupMap()
-                            "
-                            variant="info"
-                            >Default</b-button
-                        >
-                    </b-col>
-                </b-row>
-                <b-row class="my-2">
-                    <b-col>
-                        <b-button
-                            @click="
-                                (mapStyle =
-                                    'mapbox://styles/soloskilos/cl8ywrz0j000l14mrphfgsifg'),
-                                    map.remove(),
-                                    setupMap()
-                            "
-                            variant="info"
-                            >Satellite</b-button
-                        >
-                    </b-col>
-                    <b-col>
-                        <b-button
-                            @click="
-                                (mapStyle =
-                                    'mapbox://styles/soloskilos/cl8s8ldp4000w15phd0pcw50r'),
-                                    map.remove(),
-                                    setupMap()
-                            "
-                            variant="info"
-                            >Default 2</b-button
-                        >
-                    </b-col>
-                </b-row>
-                <!--<input
+            </div>
+            <!--
+            <b-row class="my-2">
+                <b-col>
+                    <b-button
+                        @click="initPolygonDraw()"
+                        variant="outline-primary"
+                        >Draw Polygon</b-button
+                    >
+                </b-col>
+                <b-col>
+                    <b-button
+                        @click="
+                            (mapStyle =
+                                'mapbox://styles/elgerardo/cl8yrf6l1000e15o68btt9hgi'),
+                                map.remove(),
+                                setupMap()
+                        "
+                        variant="info"
+                        >Default</b-button
+                    >
+                </b-col>
+            </b-row>
+            <b-row class="my-2">
+                <b-col>
+                    <b-button
+                        @click="
+                            (mapStyle =
+                                'mapbox://styles/soloskilos/cl8ywrz0j000l14mrphfgsifg'),
+                                map.remove(),
+                                setupMap()
+                        "
+                        variant="info"
+                        >Satellite</b-button
+                    >
+                </b-col>
+                <b-col>
+                    <b-button
+                        @click="
+                            (mapStyle =
+                                'mapbox://styles/soloskilos/cl8s8ldp4000w15phd0pcw50r'),
+                                map.remove(),
+                                setupMap()
+                        "
+                        variant="info"
+                        >Default 2</b-button
+                    >
+                </b-col>
+            </b-row>
+            <input
                     name="apartment"
                     placeholder="apartment"
                     autocomplete="shipping address-line2"
@@ -92,15 +82,74 @@
                     autocomplete="shipping country"
                     v-model="form.country"
                 />-->
-            </form>
+        </form>
+        <b-button
+            v-b-toggle.sidebar-menu
+            style="
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                z-index: 1;
+                background-color: #4d04af;
+            "
+            id="btn_menu"
+            >Menu</b-button
+        >
+        <b-sidebar id="sidebar-menu" bg-variant="white" style="z-index: 1">
+            <div class="px-2">
+                <h2>{{ form.address }}</h2>
+                <hr />
+                <b-tabs>
+                    <b-tab title="Details">
+                        <span>LAND USE CATEGORY</span>
+                        <p>Residential</p>
+                        <span>LAND USE</span>
+                        <p>Single Family Dwelling</p>
+                        <b-row>
+                            <b-col>
+                                <span>CITY</span>
+                                <p>Santa Rosa</p>
+                            </b-col>
+                            <b-col>
+                                <span>COUNTY</span>
+                                <p>Sonoma County</p>
+                            </b-col>
+                        </b-row>
+                        <b-row>
+                            <b-col>
+                                <span>STATE</span>
+                                <p>California</p>
+                            </b-col>
+                            <b-col>
+                                <span>ZIP CODE</span>
+                                <p>95401</p>
+                            </b-col>
+                        </b-row>
+                        <b-row>
+                            <b-col>
+                                <span>LOT AREA</span>
+                                <p>5,918 sqft</p>
+                            </b-col>
+                            <b-col>
+                                <span>PROPERTY ID</span>
+                                <p>{{ parcelId }}</p>
+                            </b-col>
+                        </b-row>
+                    </b-tab>
+                    <b-tab title="Projects"></b-tab>
+                    <b-tab title="Documents"></b-tab>
+                </b-tabs>
+            </div>
         </b-sidebar>
         <div id="map" style="width: 100%; height: 100vh"></div>
     </div>
 </template>
-
 <script>
 import { mapGetters } from "vuex";
 import { debounce } from "lodash";
+import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+import MODEL from "./34M_17.json"
 export default {
     async fetch({ store, route }) {
         await store.dispatch("polygons/find", route.query);
@@ -121,8 +170,10 @@ export default {
             popup: {},
             geojsonArrays: [],
             coordinates: {
-                lat: 32.71462470879952,
-                lng: -117.13081795279766,
+                lat: this.$route.query.lat,
+                lng: this.$route.query.lng,
+                //lat: -35.39847,
+                //lng: 148.9819
             },
             form: {
                 address: null,
@@ -133,8 +184,11 @@ export default {
             },
             urlSource: "mapbox://martoast.citysandiego",
             sourceLayer: "citysandiego",
-            parcelId: 0,
+            parcelId: null,
+            tooltipId: null,
             hoveredStateId: null,
+            //scene: null,
+            //camera: null
         };
     },
 
@@ -157,9 +211,6 @@ export default {
 
             //first time the page is loaded
             this.getPolygons(this.coordinates);
-
-            //Parcel's Tooltips
-            this.initTooltip();
 
             //Hover to parcels
             this.initHoverParcel();
@@ -193,6 +244,131 @@ export default {
             this.map.on("zoom", (e) => {
                 this.config.zoom = this.map.getZoom();
             });
+
+            this.map.on("style.load", () => {
+                this.map.addLayer(this.add3dModel(), "waterway-label");
+            });
+        },
+
+        add3dModel() {
+            const modelOrigin = [this.$route.query.lng, this.$route.query.lat];
+            const modelAltitude = 0;
+            const modelRotate = [Math.PI / 2, 0, 0];
+
+            const modelAsMercatorCoordinate =
+                this.$mapboxgl.MercatorCoordinate.fromLngLat(
+                    modelOrigin,
+                    modelAltitude
+                );
+
+            // transformation parameters to position, rotate and scale the 3D model onto the map
+            const modelTransform = {
+                translateX: modelAsMercatorCoordinate.x,
+                translateY: modelAsMercatorCoordinate.y,
+                translateZ: modelAsMercatorCoordinate.z,
+                rotateX: modelRotate[0],
+                rotateY: modelRotate[1],
+                rotateZ: modelRotate[2],
+                /* Since the 3D model is in real world meters, a scale transform needs to be
+                 * applied since the CustomLayerInterface expects units in MercatorCoordinates.
+                 */
+                scale: modelAsMercatorCoordinate.meterInMercatorCoordinateUnits(),
+            };
+            const customLayer = {
+                id: "3d-model",
+                type: "custom",
+                renderingMode: "3d",
+                onAdd: function (map, gl) {
+                    this.camera = new THREE.Camera();
+                    this.scene = new THREE.Scene();
+
+                    // create two three.js lights to illuminate the model
+                    const directionalLight = new THREE.DirectionalLight(
+                        0xffffff
+                    );
+                    directionalLight.position.set(0, -70, 100).normalize();
+                    this.scene.add(directionalLight);
+
+                    const directionalLight2 = new THREE.DirectionalLight(
+                        0xffffff
+                    );
+                    directionalLight2.position.set(0, 70, 100).normalize();
+                    this.scene.add(directionalLight2);
+
+                    // use the three.js GLTF loader to add the 3D model to the three.js scene
+                    const loader = new GLTFLoader();
+                    //const urlPath = require('url');
+                    //urlPath.fileURLToPath(urlPath)
+                    //urlPath.pathToFileURL(urlSrc)
+                    //let urlSrc = "https://r105.threejsfundamentals.org/threejs/resources/models/cartoon_lowpoly_small_city_free_pack/scene.gltf"
+                    /*let urlSrc = {
+                        type: "gltf",
+                        obj: "../public/models/34M_17.gltf",
+                        scale: 1,
+                        anchor: "center",
+                        rotation: { x: 90, y: 0, z: 0 },
+                    };*/
+                    
+                    let urlSrc = "https://docs.mapbox.com/mapbox-gl-js/assets/34M_17/34M_17.gltf";
+                    //let urlSrcLocal = new URL("http://localhost:53084/public/models/34M_17.json");
+                    //let urlSrcLocal = "./34M_17.json";
+                    //let responseModel = window.URL.createObjectURL([MODEL]);
+                    loader.load(urlSrc, (gltf) => {
+                        console.log(gltf)
+                        this.scene.add(gltf.scene);
+                    });
+
+                    this.map = map;
+
+                    // use the Mapbox GL JS map canvas for three.js
+                    this.renderer = new THREE.WebGLRenderer({
+                        canvas: map.getCanvas(),
+                        context: gl,
+                        antialias: true,
+                    });
+
+                    this.renderer.autoClear = false;
+                },
+                render: function (gl, matrix) {
+                    const rotationX = new THREE.Matrix4().makeRotationAxis(
+                        new THREE.Vector3(1, 0, 0),
+                        modelTransform.rotateX
+                    );
+                    const rotationY = new THREE.Matrix4().makeRotationAxis(
+                        new THREE.Vector3(0, 1, 0),
+                        modelTransform.rotateY
+                    );
+                    const rotationZ = new THREE.Matrix4().makeRotationAxis(
+                        new THREE.Vector3(0, 0, 1),
+                        modelTransform.rotateZ
+                    );
+
+                    const m = new THREE.Matrix4().fromArray(matrix);
+                    const l = new THREE.Matrix4()
+                        .makeTranslation(
+                            modelTransform.translateX,
+                            modelTransform.translateY,
+                            modelTransform.translateZ
+                        )
+                        .scale(
+                            new THREE.Vector3(
+                                modelTransform.scale,
+                                -modelTransform.scale,
+                                modelTransform.scale
+                            )
+                        )
+                        .multiply(rotationX)
+                        .multiply(rotationY)
+                        .multiply(rotationZ);
+
+                    this.camera.projectionMatrix = m.multiply(l);
+                    this.renderer.resetState();
+                    this.renderer.render(this.scene, this.camera);
+                    this.map.triggerRepaint();
+                },
+            };
+
+            return customLayer;
         },
 
         initTooltip() {
@@ -200,12 +376,18 @@ export default {
                 closeButton: false,
                 closeOnClick: false,
             });
+            this.map.on("mousemove", "sandiego_parcels", (e) => {
+                if (this.tooltipId != e.features[0].properties.parcel_id) {
+                    this.tooltipId = e.features[0].properties.parcel_id;
+                    this.popup
+                        .setLngLat(e.lngLat)
+                        .setHTML(e.features[0].properties.parcel_id)
+                        .addTo(this.map);
+                }
+            });
 
-            this.map.on("mouseenter", "sandiego-parcels", (e) => {
-                this.popup
-                    .setLngLat(e.lngLat)
-                    .setHTML(e.features[0].properties.address)
-                    .addTo(this.map);
+            this.map.on("mouseleave", "sandiego_parcels", (e) => {
+                this.popup.remove();
             });
         },
 
@@ -307,6 +489,10 @@ export default {
                 });
                 //fetch to API
                 this.getPolygons(this.coordinates);
+
+                //this.$refs.sideBarMenu.show();
+                document.getElementById("btn_menu").click;
+                //this.$refs.sideBarMenu.toggle();
             });
         },
 
@@ -405,258 +591,6 @@ export default {
 
             this.map.fitBounds(bounds, {});
         },
-
-        //not working methods
-        init3D_not_working() {
-            // Insert the layer beneath any symbol layer.
-            const layers = this.map.getStyle().layers;
-            const labelLayerId = layers.find(
-                (layer) => layer.type === "symbol" && layer.layout["text-field"]
-            ).id;
-
-            // The 'building' layer in the Mapbox Streets
-            // vector tileset contains building height data
-            // from OpenStreetMap.
-            this.map.addLayer(
-                {
-                    id: "add-3d-buildings",
-                    source: "composite",
-                    "source-layer": "building",
-                    filter: ["==", "extrude", "true"],
-                    type: "fill-extrusion",
-                    minzoom: 15,
-                    transition: {
-                        duration: 300,
-                        delay: 0,
-                    },
-                    paint: {
-                        "fill-extrusion-color": "#aaa",
-
-                        // Use an 'interpolate' expression to
-                        // add a smooth transition effect to
-                        // the buildings as the user zooms in.
-                        "fill-extrusion-height": [
-                            "interpolate",
-                            ["linear"],
-                            ["zoom"],
-                            15,
-                            0,
-                            15.05,
-                            ["get", "height"],
-                        ],
-                        "fill-extrusion-base": [
-                            "interpolate",
-                            ["linear"],
-                            ["zoom"],
-                            15,
-                            0,
-                            15.05,
-                            ["get", "min_height"],
-                        ],
-                        "fill-extrusion-opacity": 0.6,
-                    },
-                },
-                labelLayerId
-            );
-        },
-
-        initMarker_not_working() {
-            this.marker = new this.$mapboxgl.Marker({
-                color: "blue",
-                draggable: true,
-            })
-                .setLngLat([this.coordinates.lng, this.coordinates.lat])
-                .addTo(this.map);
-        },
-
-        initHoverBuilding_not_working(map) {
-            this.map.on("style.load", function () {
-                const layers = map.getStyle().layers;
-                const labelLayerId = layers.find(
-                    (layer) =>
-                        layer.type === "symbol" && layer.layout["text-field"]
-                ).id;
-
-                if (map.getSource("composite")) {
-                    map.addLayer(
-                        {
-                            id: "3d-buildings",
-                            source: "composite",
-                            "source-layer": "building",
-                            filter: ["==", "extrude", "true"],
-                            type: "fill-extrusion",
-                            minzoom: 17,
-                            paint: {
-                                "fill-extrusion-color": [
-                                    "case",
-                                    [
-                                        "boolean",
-                                        ["feature-state", "hover"],
-                                        false,
-                                    ],
-                                    "#aaa",
-                                    "#aaa",
-                                ],
-                                "fill-extrusion-height": [
-                                    "case",
-                                    [
-                                        "boolean",
-                                        ["feature-state", "hover"],
-                                        false,
-                                    ],
-                                    ["get", "height"],
-                                    0,
-                                ],
-                                "fill-extrusion-base": [
-                                    "case",
-                                    [
-                                        "boolean",
-                                        ["feature-state", "hover"],
-                                        false,
-                                    ],
-                                    ["get", "base_height"],
-                                    0,
-                                ],
-                            },
-                        },
-                        labelLayerId
-                    );
-                }
-
-                let fHover;
-                map.on("mousemove", (e) => {
-                    //157001066
-                    var features = map.queryRenderedFeatures(e.point, {
-                        layers: ["3d-buildings"],
-                    });
-                    if (features[0]) {
-                        mouseout();
-                        mouseover(features[0]);
-                    } else {
-                        mouseout();
-                    }
-                });
-
-                map.on("mouseout", function (e) {
-                    mouseout();
-                });
-
-                function mouseout() {
-                    if (!fHover) return;
-                    map.getCanvasContainer().style.cursor = "default";
-                    map.setFeatureState(
-                        {
-                            source: fHover.source,
-                            sourceLayer: fHover.sourceLayer,
-                            id: fHover.id,
-                        },
-                        {
-                            hover: false,
-                        }
-                    );
-                }
-
-                function mouseover(feature) {
-                    fHover = feature;
-
-                    map.getCanvasContainer().style.cursor = "pointer";
-
-                    map.setFeatureState(
-                        {
-                            source: fHover.source,
-                            sourceLayer: fHover.sourceLayer,
-                            id: fHover.id,
-                        },
-                        {
-                            hover: true,
-                        }
-                    );
-                }
-            });
-        },
-
-        initHoverPolygon_not_working() {
-            if (this.map.getLayer("building-fill"))
-                this.map.removeLayer("building-fill");
-            if (this.map.getSource("mapbox-streets"))
-                this.map.removeSource("mapbox-streets");
-            this.map.addSource("mapbox-streets", {
-                type: "vector",
-                data: "mapbox://tileset-source/elgerardo/sandiegoparcels",
-                generateId: true,
-            });
-
-            this.map.addLayer({
-                id: "building-fill",
-                type: "fill",
-                "source-layer": "sandiego_parcels",
-                source: "mapbox-streets",
-                layout: {},
-                paint: {
-                    "fill-color": "#aaa",
-                    "fill-opacity": [
-                        "case",
-                        ["boolean", ["feature-state", "hover"], false],
-                        0,
-                        0,
-                    ],
-                },
-            });
-
-            this.map.on("mousemove", "building", (e) => {
-                if (e.features.length > 0) {
-                    if (this.hoveredStateId !== null) {
-                        this.map.setFeatureState(
-                            {
-                                source: "mapbox-streets",
-                                sourceLayer: "building",
-                                id: this.hoveredStateId,
-                            },
-                            { hover: false }
-                        );
-                    }
-                    this.hoveredStateId = e.features[0].id;
-                    this.map.setFeatureState(
-                        {
-                            source: "mapbox-streets",
-                            sourceLayer: "building",
-                            id: this.hoveredStateId,
-                        },
-                        { hover: true }
-                    );
-                }
-            });
-
-            this.map.on("mouseleave", "building", () => {
-                if (this.hoveredStateId !== null) {
-                    this.map.setFeatureState(
-                        {
-                            source: "mapbox-streets",
-                            sourceLayer: "building",
-                            id: this.hoveredStateId,
-                        },
-                        { hover: false }
-                    );
-                }
-                this.hoveredStateId = null;
-            });
-        },
-
-        initPolygonDraw_not_working() {
-            this.draw = new this.$MapboxDraw({
-                displayControlsDefault: false,
-                // Select which mapbox-gl-draw control buttons to add to the map.
-                controls: {
-                    polygon: true,
-                    trash: true,
-                },
-                // Set mapbox-gl-draw to draw by default.
-                // The user does not have to click the polygon control button first.
-                defaultMode: "draw_polygon",
-            });
-
-            this.map.addControl(this.draw);
-        },
     },
 
     watch: {
@@ -673,12 +607,15 @@ export default {
             //fetch
             console.log("debouncing...");
             console.log(this.parcelId);
+
+            //Parcel's Tooltips
+            //this.initTooltip();
         }, 600),
     },
 };
 </script>
 <style>
-/*Helps to the search works inside the sidebar*/
+/*Helps to the search works inside the sidebar
 mapbox-search-listbox {
     position: absolute;
     z-index: 10;
@@ -687,5 +624,8 @@ mapbox-search-listbox {
 .mbx183d3cf5--MapboxSearch {
     position: absolute;
     z-index: 2;
+}*/
+.nav-link {
+    color: #85088e;
 }
 </style>

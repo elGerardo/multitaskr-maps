@@ -42,6 +42,12 @@ export default {
         {
             src: "~/plugins/imports/mapboxdraw.js",
         },
+        {
+            src: "~/plugins/imports/three.js",
+        },
+        {
+            src: "~/plugins/imports/gltfLoader.js",
+        },
     ],
 
     // Auto import components: https://go.nuxtjs.dev/config-components
