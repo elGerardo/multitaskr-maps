@@ -9,6 +9,7 @@
                     autocomplete="shipping address-line1"
                     v-model="form.address"
                 />
+                <b-button id="setAdu">Set Adu</b-button>
             </div>
             <!--
             <b-row class="my-2">
@@ -149,7 +150,9 @@ import { mapGetters } from "vuex";
 import { debounce } from "lodash";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
-import MODEL from "./34M_17.json"
+import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader";
+import { DragControls } from "three/examples/jsm/controls/DragControls";
+
 export default {
     async fetch({ store, route }) {
         await store.dispatch("polygons/find", route.query);
@@ -161,7 +164,7 @@ export default {
                 "pk.eyJ1IjoiZWxnZXJhcmRvIiwiYSI6ImNsOG90NjFtMzFucG0zeWw1YWRheTV5ZmYifQ.87BCgCSXpjLIHkqGsWUW7g",
             mapStyle: "mapbox://styles/elgerardo/cl9d3ovzq000115ubx8rs0flv",
             config: {
-                zoom: 17,
+                zoom: 22,
             },
             map: {},
             marker: {},
@@ -182,7 +185,7 @@ export default {
                 state: null,
                 country: null,
             },
-            urlSource: "mapbox://martoast.citysandiego",
+            urlSourceParcel: "mapbox://martoast.citysandiego",
             sourceLayer: "citysandiego",
             parcelId: null,
             tooltipId: null,
@@ -216,6 +219,14 @@ export default {
             this.initHoverParcel();
         },
 
+        initSources() {
+            this.map.addSource("parcel_source", {
+                type: "vector",
+                url: this.urlSourceParcel,
+                generateId: true,
+            });
+        },
+
         initMap() {
             //new map
             this.$mapboxgl.accessToken = this.access_token;
@@ -247,22 +258,29 @@ export default {
 
             this.map.on("style.load", () => {
                 this.map.addLayer(this.add3dModel(), "waterway-label");
+
+                this.initSources();
+
+                this.map.on("mousemove", "3d-model", (e) => {
+                    console.log("touching 3d...");
+                });
             });
         },
 
         add3dModel() {
-            const modelOrigin = [this.$route.query.lng, this.$route.query.lat];
-            const modelAltitude = 0;
-            const modelRotate = [Math.PI / 2, 0, 0];
+            var modelOrigin = [this.$route.query.lng, this.$route.query.lat];
+            //let modelOrigin = [-117.02390122960196, 32.58871798986128]
+            var modelAltitude = 0;
+            var modelRotate = [Math.PI / 2, 0, 0];
 
-            const modelAsMercatorCoordinate =
+            let modelAsMercatorCoordinate =
                 this.$mapboxgl.MercatorCoordinate.fromLngLat(
                     modelOrigin,
                     modelAltitude
                 );
 
             // transformation parameters to position, rotate and scale the 3D model onto the map
-            const modelTransform = {
+            let modelTransform = {
                 translateX: modelAsMercatorCoordinate.x,
                 translateY: modelAsMercatorCoordinate.y,
                 translateZ: modelAsMercatorCoordinate.z,
@@ -274,7 +292,13 @@ export default {
                  */
                 scale: modelAsMercatorCoordinate.meterInMercatorCoordinateUnits(),
             };
-            const customLayer = {
+
+            var mapbox = this.map;
+            var mapboxgl = this.$mapboxgl;
+            var lngMercator = this.$route.query.lng;
+            var latMercator = this.$route.query.lat;
+
+            let customLayer = {
                 id: "3d-model",
                 type: "custom",
                 renderingMode: "3d",
@@ -295,28 +319,47 @@ export default {
                     directionalLight2.position.set(0, 70, 100).normalize();
                     this.scene.add(directionalLight2);
 
-                    // use the three.js GLTF loader to add the 3D model to the three.js scene
-                    const loader = new GLTFLoader();
-                    //const urlPath = require('url');
-                    //urlPath.fileURLToPath(urlPath)
-                    //urlPath.pathToFileURL(urlSrc)
-                    //let urlSrc = "https://r105.threejsfundamentals.org/threejs/resources/models/cartoon_lowpoly_small_city_free_pack/scene.gltf"
-                    /*let urlSrc = {
-                        type: "gltf",
-                        obj: "../public/models/34M_17.gltf",
-                        scale: 1,
-                        anchor: "center",
-                        rotation: { x: 90, y: 0, z: 0 },
-                    };*/
-                    
-                    let urlSrc = "https://docs.mapbox.com/mapbox-gl-js/assets/34M_17/34M_17.gltf";
-                    //let urlSrcLocal = new URL("http://localhost:53084/public/models/34M_17.json");
-                    //let urlSrcLocal = "./34M_17.json";
-                    //let responseModel = window.URL.createObjectURL([MODEL]);
-                    loader.load(urlSrc, (gltf) => {
-                        console.log(gltf)
-                        this.scene.add(gltf.scene);
+                    let urlSrc = "./models/adutwo.fbx";
+
+                    let loader = new FBXLoader();
+                    loader.load(urlSrc, (fbx) => {
+                        console.log(fbx);
+                        fbx.scale.set(0.02, 0.02, 0.02);
+                        fbx.position.set(-37, 0, 20);
+                        this.scene.add(fbx);
                     });
+
+                    document
+                        .getElementById("setAdu")
+                        .addEventListener("click", () => {
+                            console.log("init setting adu...");
+                            let init = false;
+
+                            mapbox.on("mousemove", "maineSelected", (e) => {
+                                if (!init) {
+                                    modelAsMercatorCoordinate =
+                                        mapboxgl.MercatorCoordinate.fromLngLat(
+                                            [e.lngLat.lng, e.lngLat.lat],
+                                            modelAltitude
+                                        );
+
+                                    modelTransform = {
+                                        translateX: modelAsMercatorCoordinate.x,
+                                        translateY: modelAsMercatorCoordinate.y,
+                                        translateZ: modelAsMercatorCoordinate.z,
+                                        rotateX: modelRotate[0],
+                                        rotateY: modelRotate[1],
+                                        rotateZ: modelRotate[2],
+
+                                        scale: modelAsMercatorCoordinate.meterInMercatorCoordinateUnits(),
+                                    };
+                                }
+                            });
+
+                            mapbox.on("click", "maineSelected", (e) => {
+                                init = true;
+                            });
+                        });
 
                     this.map = map;
 
@@ -324,27 +367,28 @@ export default {
                     this.renderer = new THREE.WebGLRenderer({
                         canvas: map.getCanvas(),
                         context: gl,
-                        antialias: true,
+                        antialias: false,
                     });
 
                     this.renderer.autoClear = false;
                 },
+
                 render: function (gl, matrix) {
-                    const rotationX = new THREE.Matrix4().makeRotationAxis(
+                    var rotationX = new THREE.Matrix4().makeRotationAxis(
                         new THREE.Vector3(1, 0, 0),
                         modelTransform.rotateX
                     );
-                    const rotationY = new THREE.Matrix4().makeRotationAxis(
+                    var rotationY = new THREE.Matrix4().makeRotationAxis(
                         new THREE.Vector3(0, 1, 0),
                         modelTransform.rotateY
                     );
-                    const rotationZ = new THREE.Matrix4().makeRotationAxis(
+                    var rotationZ = new THREE.Matrix4().makeRotationAxis(
                         new THREE.Vector3(0, 0, 1),
                         modelTransform.rotateZ
                     );
 
-                    const m = new THREE.Matrix4().fromArray(matrix);
-                    const l = new THREE.Matrix4()
+                    var m = new THREE.Matrix4().fromArray(matrix);
+                    var l = new THREE.Matrix4()
                         .makeTranslation(
                             modelTransform.translateX,
                             modelTransform.translateY,
@@ -395,12 +439,6 @@ export default {
             let hoveredStateId = null;
 
             this.map.on("load", (e) => {
-                this.map.addSource("parcel_source", {
-                    type: "vector",
-                    url: this.urlSource,
-                    generateId: true,
-                });
-
                 this.map.addLayer({
                     id: "sandiego_parcels",
                     generateId: true,
@@ -569,16 +607,16 @@ export default {
         },
 
         centeredView(coordinates) {
-            const bounds = new this.$mapboxgl.LngLatBounds(
+            var bounds = new this.$mapboxgl.LngLatBounds(
                 coordinates[0],
                 coordinates[0]
             );
 
-            for (const coord of coordinates) {
+            for (var coord of coordinates) {
                 bounds.extend(coord);
             }
 
-            const center = bounds;
+            var center = bounds;
 
             //this.marker.setLngLat(center.getCenter());
 
@@ -607,24 +645,11 @@ export default {
             //fetch
             console.log("debouncing...");
             console.log(this.parcelId);
-
-            //Parcel's Tooltips
-            //this.initTooltip();
         }, 600),
     },
 };
 </script>
 <style>
-/*Helps to the search works inside the sidebar
-mapbox-search-listbox {
-    position: absolute;
-    z-index: 10;
-}
-
-.mbx183d3cf5--MapboxSearch {
-    position: absolute;
-    z-index: 2;
-}*/
 .nav-link {
     color: #85088e;
 }
