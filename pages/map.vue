@@ -190,6 +190,11 @@ export default {
             parcelId: null,
             tooltipId: null,
             hoveredStateId: null,
+            modelConfig:{
+                camera: null,
+                scene: null,
+                renderer: null
+            }
             //scene: null,
             //camera: null
         };
@@ -259,11 +264,15 @@ export default {
             this.map.on("style.load", () => {
                 this.map.addLayer(this.add3dModel(), "waterway-label");
 
-                this.initSources();
-
                 this.map.on("mousemove", "3d-model", (e) => {
+                    console.log("moving 3d model...");
+                });
+
+                this.map.on("mousemove", "building-extrusion", (e) => {
                     console.log("touching 3d...");
                 });
+
+                this.initSources();
             });
         },
 
@@ -295,85 +304,100 @@ export default {
 
             var mapbox = this.map;
             var mapboxgl = this.$mapboxgl;
-            var lngMercator = this.$route.query.lng;
-            var latMercator = this.$route.query.lat;
+
+            console.log(this.coordinates);
+
+            
 
             let customLayer = {
                 id: "3d-model",
                 type: "custom",
                 renderingMode: "3d",
-                onAdd: function (map, gl) {
-                    this.camera = new THREE.Camera();
-                    this.scene = new THREE.Scene();
+                onAdd: (map, gl) => {
+
+                    this.modelConfig.camera = new THREE.Camera();
+                    this.modelConfig.scene = new THREE.Scene();
 
                     // create two three.js lights to illuminate the model
                     const directionalLight = new THREE.DirectionalLight(
                         0xffffff
                     );
                     directionalLight.position.set(0, -70, 100).normalize();
-                    this.scene.add(directionalLight);
+                    this.modelConfig.scene.add(directionalLight);
 
                     const directionalLight2 = new THREE.DirectionalLight(
                         0xffffff
                     );
                     directionalLight2.position.set(0, 70, 100).normalize();
-                    this.scene.add(directionalLight2);
+                    this.modelConfig.scene.add(directionalLight2);
 
                     let urlSrc = "./models/adutwo.fbx";
 
-                    let loader = new FBXLoader();
-                    loader.load(urlSrc, (fbx) => {
+                    this.modelConfig.loader = new FBXLoader();
+                    this.modelConfig.loader.load(urlSrc, (fbx) => {
                         console.log(fbx);
                         fbx.scale.set(0.02, 0.02, 0.02);
                         fbx.position.set(-37, 0, 20);
-                        this.scene.add(fbx);
+                        this.modelConfig.scene.add(fbx);
                     });
 
                     document
                         .getElementById("setAdu")
                         .addEventListener("click", () => {
-                            console.log("init setting adu...");
-                            let init = false;
 
-                            mapbox.on("mousemove", "maineSelected", (e) => {
-                                if (!init) {
-                                    modelAsMercatorCoordinate =
-                                        mapboxgl.MercatorCoordinate.fromLngLat(
-                                            [e.lngLat.lng, e.lngLat.lat],
-                                            modelAltitude
-                                        );
+                            let init = true;
+                            let onBuilding = false;
 
-                                    modelTransform = {
-                                        translateX: modelAsMercatorCoordinate.x,
-                                        translateY: modelAsMercatorCoordinate.y,
-                                        translateZ: modelAsMercatorCoordinate.z,
-                                        rotateX: modelRotate[0],
-                                        rotateY: modelRotate[1],
-                                        rotateZ: modelRotate[2],
-
-                                        scale: modelAsMercatorCoordinate.meterInMercatorCoordinateUnits(),
-                                    };
-                                }
+                            this.map.moveLayer("maineSelected", "building-extrusion");
+                            
+                            this.map.on("mouseenter", "building-extrusion", (e) => {
+                                console.log("inside the bulding...");
+                                onBuilding = true;
                             });
 
-                            mapbox.on("click", "maineSelected", (e) => {
-                                init = true;
+                            this.map.on("mouseleave", "building-extrusion", (e) => {
+                                console.log("outnside the bulding...");
+                                onBuilding = false;
+                            });
+ 
+                            this.map.on("mousemove", "maineSelected", (e) => {                             
+
+                            if (init && !onBuilding) {
+
+                                modelAsMercatorCoordinate =
+                                    this.$mapboxgl.MercatorCoordinate.fromLngLat(
+                                        [e.lngLat.lng, e.lngLat.lat],
+                                        modelAltitude
+                                    );
+                                modelTransform = {
+                                    translateX: modelAsMercatorCoordinate.x,
+                                    translateY: modelAsMercatorCoordinate.y,
+                                    translateZ: modelAsMercatorCoordinate.z,
+                                    rotateX: modelRotate[0],
+                                    rotateY: modelRotate[1],
+                                    rotateZ: modelRotate[2],
+
+                                    scale: modelAsMercatorCoordinate.meterInMercatorCoordinateUnits(),
+                                };
+                            }
+                        });
+                        
+                        this.map.on("click", "maineSelected", (e) => {
+                                init = false;
                             });
                         });
 
-                    this.map = map;
-
                     // use the Mapbox GL JS map canvas for three.js
-                    this.renderer = new THREE.WebGLRenderer({
+                    this.modelConfig.renderer = new THREE.WebGLRenderer({
                         canvas: map.getCanvas(),
                         context: gl,
                         antialias: false,
                     });
 
-                    this.renderer.autoClear = false;
+                    this.modelConfig.renderer.autoClear = false;
                 },
 
-                render: function (gl, matrix) {
+                render: (gl, matrix) => {
                     var rotationX = new THREE.Matrix4().makeRotationAxis(
                         new THREE.Vector3(1, 0, 0),
                         modelTransform.rotateX
@@ -404,10 +428,10 @@ export default {
                         .multiply(rotationX)
                         .multiply(rotationY)
                         .multiply(rotationZ);
-
-                    this.camera.projectionMatrix = m.multiply(l);
-                    this.renderer.resetState();
-                    this.renderer.render(this.scene, this.camera);
+                    
+                    this.modelConfig.camera.projectionMatrix = m.multiply(l);
+                    this.modelConfig.renderer.resetState();
+                    this.modelConfig.renderer.render(this.modelConfig.scene, this.modelConfig.camera);
                     this.map.triggerRepaint();
                 },
             };
@@ -643,8 +667,8 @@ export default {
 
         parcelId: debounce(async function (value, old) {
             //fetch
-            console.log("debouncing...");
-            console.log(this.parcelId);
+            //console.log("debouncing...");
+            //console.log(this.parcelId);
         }, 600),
     },
 };
