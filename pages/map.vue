@@ -10,6 +10,16 @@
                     v-model="form.address"
                 />
                 <b-button id="setAdu">Set Adu</b-button>
+                <b-form-spinbutton
+                    v-model="modelConfig.rotate"
+                    id="sb-wrap"
+                    wrap
+                    step="20"
+                    min="0"
+                    max="360"
+                    placeholder="rotate"
+                    style="width: 350px"
+                ></b-form-spinbutton>
             </div>
             <!--
             <b-row class="my-2">
@@ -149,9 +159,9 @@
 import { mapGetters } from "vuex";
 import { debounce } from "lodash";
 import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader";
 import { DragControls } from "three/examples/jsm/controls/DragControls";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 
 export default {
     async fetch({ store, route }) {
@@ -178,6 +188,10 @@ export default {
                 //lat: -35.39847,
                 //lng: 148.9819
             },
+            modelLngLat: {
+                lat: this.$route.query.lat,
+                lng: this.$route.query.lng,
+            },
             form: {
                 address: null,
                 apartment: null,
@@ -190,11 +204,18 @@ export default {
             parcelId: null,
             tooltipId: null,
             hoveredStateId: null,
-            modelConfig:{
+            modelConfig: {
                 camera: null,
                 scene: null,
-                renderer: null
-            }
+                renderer: null,
+                rotate: 0,
+            },
+            modelTransform: null,
+            modelAsMercatorCoordinate: null,
+            modelRotate: null,
+            modelAltitude: null,
+            modelOrigin: null,
+            floorPlanCoordinates: null,
             //scene: null,
             //camera: null
         };
@@ -243,8 +264,8 @@ export default {
                 bearing: -17.6, // rotation
                 antialias: true,
                 center: [this.coordinates.lng, this.coordinates.lat],
-                projection: "globe", // display the map as a 3D globe,
-                attributionControl: false,
+                //                projection: "globe", // display the map as a 3D globe,
+                //                attributionControl: false,
             });
 
             //fetch to API when make a click
@@ -252,8 +273,8 @@ export default {
                 this.coordinates.lat = parseFloat(e.lngLat.lat);
                 this.coordinates.lng = parseFloat(e.lngLat.lng);
                 this.config.zoom = this.map.getZoom();
-                this.getAddress();
-                this.getPolygons(e.lngLat);
+                this.getAddress(); // show info in sidebar
+                this.getPolygons(e.lngLat); // pint parcel selected
             });
 
             //zoom event
@@ -261,60 +282,216 @@ export default {
                 this.config.zoom = this.map.getZoom();
             });
 
-            this.map.on("style.load", () => {
-                this.map.addLayer(this.add3dModel(), "waterway-label");
+            this.map.on("load", () => {});
 
-                this.map.on("mousemove", "3d-model", (e) => {
-                    console.log("moving 3d model...");
+            this.map.on("style.load", () => {
+                //this.map.addLayer(this.add3dModel());
+
+                this.addDragShape();
+                //this.addTurfCircle();
+
+                /*this.map.on("mousemove", "3d-model", (e) => {
+                    //                    console.log("moving 3d model...");
                 });
 
                 this.map.on("mousemove", "building-extrusion", (e) => {
-                    console.log("touching 3d...");
-                });
+                    //                    console.log("touching 3d...");
+                });*/
 
                 this.initSources();
+
+                this.map.on("mousemove", "circle_floor_plan", (e) => {
+                    console.log("on circle...");
+                });
+
+                //this.initMarker();
+                /*this.map.on("idle", (e) => {
+                    //marker
+
+                });*/
+            });
+        },
+
+        addDragShape() {
+            let canvas = this.map.getCanvasContainer();
+
+            var geojson = {
+                type: "FeatureCollection",
+                features: [
+                    {
+                        type: "Feature",
+                        geometry: {
+                            type: "Polygon",
+                            // These coordinates outline Maine.
+                            coordinates: [
+                                [
+                                    [-117.18605148256043, 32.83737944284863],
+                                    [-117.18605148256043, 32.83741344284863],
+                                    [-117.18611548256044, 32.83741344284863],
+                                    [-117.18611548256044, 32.83737944284863],
+                                    [-117.18605148256043, 32.83737944284863],
+
+                                    /*[1.85, 42.1],
+                                    [1.85, 41.75],
+                                    [2.5, 41.75],
+                                    [2.5, 42.1],
+                                    [1.85, 42.1],*/
+                                ],
+                            ],
+                        },
+                    },
+                ],
+            };
+
+            let onMove = (e) => {
+                const coords = e.lngLat;
+
+                // Set a UI indicator for dragging.
+                canvas.style.cursor = "grabbing";
+
+                // Update the Point feature in `geojson` coordinates
+                // and call setData to the source layer `point` on it.
+                //geojson.features[0].geometry.coordinates = [coords.lng, coords.lat];
+
+                //console.log(`${coords.lat} - ${coords.lng}`);
+
+                let north = coords.lat - 0.000017;
+                let west = coords.lng +  0.000032;
+                let south = coords.lat + 0.000017;
+                let east = coords.lng -  0.000032;
+
+                this.floorPlanCoordinates = [
+                    [west, north],
+                    [west, south],
+                    [east, south],
+                    [east, north],
+                    [west, north],
+                ];
+
+                geojson.features[0].geometry.coordinates = [
+                    [
+                        [west, north],
+                        [west, south],
+                        [east, south],
+                        [east, north],
+                        [west, north],
+                    ],
+                ];
+                this.map.getSource("pol").setData(geojson);
+            };
+
+            let onUp = (e) => {
+                // Print the coordinates of where the point had
+                // finished being dragged to on the map.
+                canvas.style.cursor = "";
+
+                // Unbind mouse/touch events
+                this.map.off("mousemove", onMove);
+                this.map.off("touchmove", onMove);
+            };
+
+            this.map.addSource("pol", {
+                type: "geojson",
+                data: geojson,
+            });
+
+            this.map.addLayer({
+                id: "point",
+                type: "fill",
+                source: "pol",
+                paint: {
+                    "fill-color": "#0080ff", // blue color fill
+                    "fill-opacity": 0.5,
+                },
+            });
+
+            this.map.on("mouseenter", "point", () => {
+                //map.setPaintProperty('point', 'circle-color', '#3bb2d0');
+                canvas.style.cursor = "move";
+            });
+
+            this.map.on("mouseleave", "point", () => {
+                //map.setPaintProperty('point', 'circle-color', '#3887be');
+                canvas.style.cursor = "";
+            });
+
+            this.map.on("mousedown", "point", (e) => {
+                // Prevent the default map drag behavior.
+                e.preventDefault();
+                canvas.style.cursor = "grab";
+
+                this.map.on("mousemove", onMove);
+                this.map.once("mouseup", onUp);
+            });
+
+            this.map.on("touchstart", "point", (e) => {
+                if (e.points.length !== 1) return;
+
+                // Prevent the default map drag behavior.
+                e.preventDefault();
+
+                this.map.on("touchmove", onMove);
+                this.map.once("touchend", onUp);
+            });
+        },
+
+        addTurfCircle() {
+            var center = [this.$route.query.lng, this.$route.query.lat];
+            var radiusTwo = 2.5;
+            var options = {
+                steps: 4,
+                units: "meters",
+                properties: { foo: "bar" },
+            };
+
+            var circle = this.$turf.circle(center, radiusTwo, options);
+
+            this.map.addLayer({
+                id: "circle_floor_plan",
+                type: "fill",
+                source: {
+                    type: "geojson",
+                    data: circle,
+                    lineMetrics: true,
+                },
+                paint: {
+                    "fill-color": "red",
+                },
+                layout: {},
             });
         },
 
         add3dModel() {
-            var modelOrigin = [this.$route.query.lng, this.$route.query.lat];
+            this.modelOrigin = [this.$route.query.lng, this.$route.query.lat];
             //let modelOrigin = [-117.02390122960196, 32.58871798986128]
-            var modelAltitude = 0;
-            var modelRotate = [Math.PI / 2, 0, 0];
+            this.modelAltitude = 0;
+            this.modelRotate = [Math.PI / 2, 0, 0];
 
-            let modelAsMercatorCoordinate =
+            this.modelAsMercatorCoordinate =
                 this.$mapboxgl.MercatorCoordinate.fromLngLat(
-                    modelOrigin,
-                    modelAltitude
+                    this.modelOrigin,
+                    this.modelAltitude
                 );
 
             // transformation parameters to position, rotate and scale the 3D model onto the map
-            let modelTransform = {
-                translateX: modelAsMercatorCoordinate.x,
-                translateY: modelAsMercatorCoordinate.y,
-                translateZ: modelAsMercatorCoordinate.z,
-                rotateX: modelRotate[0],
-                rotateY: modelRotate[1],
-                rotateZ: modelRotate[2],
+            this.modelTransform = {
+                translateX: this.modelAsMercatorCoordinate.x,
+                translateY: this.modelAsMercatorCoordinate.y,
+                translateZ: this.modelAsMercatorCoordinate.z,
+                rotateX: this.modelRotate[0],
+                rotateY: this.modelRotate[1],
+                rotateZ: this.modelRotate[2],
                 /* Since the 3D model is in real world meters, a scale transform needs to be
                  * applied since the CustomLayerInterface expects units in MercatorCoordinates.
                  */
-                scale: modelAsMercatorCoordinate.meterInMercatorCoordinateUnits(),
+                scale: this.modelAsMercatorCoordinate.meterInMercatorCoordinateUnits(),
             };
-
-            var mapbox = this.map;
-            var mapboxgl = this.$mapboxgl;
-
-            console.log(this.coordinates);
-
-            
 
             let customLayer = {
                 id: "3d-model",
                 type: "custom",
                 renderingMode: "3d",
                 onAdd: (map, gl) => {
-
                     this.modelConfig.camera = new THREE.Camera();
                     this.modelConfig.scene = new THREE.Scene();
 
@@ -335,7 +512,6 @@ export default {
 
                     this.modelConfig.loader = new FBXLoader();
                     this.modelConfig.loader.load(urlSrc, (fbx) => {
-                        console.log(fbx);
                         fbx.scale.set(0.02, 0.02, 0.02);
                         fbx.position.set(-37, 0, 20);
                         this.modelConfig.scene.add(fbx);
@@ -344,45 +520,60 @@ export default {
                     document
                         .getElementById("setAdu")
                         .addEventListener("click", () => {
-
                             let init = true;
                             let onBuilding = false;
 
-                            this.map.moveLayer("maineSelected", "building-extrusion");
-                            
-                            this.map.on("mouseenter", "building-extrusion", (e) => {
-                                console.log("inside the bulding...");
-                                onBuilding = true;
+                            this.map.moveLayer(
+                                "maineSelected",
+                                "building-extrusion"
+                            );
+
+                            this.map.on(
+                                "mouseenter",
+                                "building-extrusion",
+                                (e) => {
+                                    //                                    console.log("inside the bulding...");
+                                    onBuilding = true;
+                                }
+                            );
+
+                            this.map.on(
+                                "mouseleave",
+                                "building-extrusion",
+                                (e) => {
+                                    //                                    console.log("outnside the bulding...");
+                                    onBuilding = false;
+                                }
+                            );
+
+                            this.map.on("mousemove", "maineSelected", (e) => {
+                                if (init && !onBuilding) {
+                                    this.modelAsMercatorCoordinate =
+                                        this.$mapboxgl.MercatorCoordinate.fromLngLat(
+                                            [e.lngLat.lng, e.lngLat.lat],
+                                            this.modelAltitude
+                                        );
+
+                                    this.modelLngLat.lat = e.lngLat.lat;
+                                    this.modelLngLat.lng = e.lngLat.lng;
+
+                                    this.modelTransform = {
+                                        translateX:
+                                            this.modelAsMercatorCoordinate.x,
+                                        translateY:
+                                            this.modelAsMercatorCoordinate.y,
+                                        translateZ:
+                                            this.modelAsMercatorCoordinate.z,
+                                        rotateX: this.modelRotate[0],
+                                        rotateY: this.modelRotate[1],
+                                        rotateZ: this.modelRotate[2],
+
+                                        scale: this.modelAsMercatorCoordinate.meterInMercatorCoordinateUnits(),
+                                    };
+                                }
                             });
 
-                            this.map.on("mouseleave", "building-extrusion", (e) => {
-                                console.log("outnside the bulding...");
-                                onBuilding = false;
-                            });
- 
-                            this.map.on("mousemove", "maineSelected", (e) => {                             
-
-                            if (init && !onBuilding) {
-
-                                modelAsMercatorCoordinate =
-                                    this.$mapboxgl.MercatorCoordinate.fromLngLat(
-                                        [e.lngLat.lng, e.lngLat.lat],
-                                        modelAltitude
-                                    );
-                                modelTransform = {
-                                    translateX: modelAsMercatorCoordinate.x,
-                                    translateY: modelAsMercatorCoordinate.y,
-                                    translateZ: modelAsMercatorCoordinate.z,
-                                    rotateX: modelRotate[0],
-                                    rotateY: modelRotate[1],
-                                    rotateZ: modelRotate[2],
-
-                                    scale: modelAsMercatorCoordinate.meterInMercatorCoordinateUnits(),
-                                };
-                            }
-                        });
-                        
-                        this.map.on("click", "maineSelected", (e) => {
+                            this.map.on("click", "maineSelected", (e) => {
                                 init = false;
                             });
                         });
@@ -400,38 +591,41 @@ export default {
                 render: (gl, matrix) => {
                     var rotationX = new THREE.Matrix4().makeRotationAxis(
                         new THREE.Vector3(1, 0, 0),
-                        modelTransform.rotateX
+                        this.modelTransform.rotateX
                     );
                     var rotationY = new THREE.Matrix4().makeRotationAxis(
                         new THREE.Vector3(0, 1, 0),
-                        modelTransform.rotateY
+                        this.modelTransform.rotateY
                     );
                     var rotationZ = new THREE.Matrix4().makeRotationAxis(
                         new THREE.Vector3(0, 0, 1),
-                        modelTransform.rotateZ
+                        this.modelTransform.rotateZ
                     );
 
                     var m = new THREE.Matrix4().fromArray(matrix);
                     var l = new THREE.Matrix4()
                         .makeTranslation(
-                            modelTransform.translateX,
-                            modelTransform.translateY,
-                            modelTransform.translateZ
+                            this.modelTransform.translateX,
+                            this.modelTransform.translateY,
+                            this.modelTransform.translateZ
                         )
                         .scale(
                             new THREE.Vector3(
-                                modelTransform.scale,
-                                -modelTransform.scale,
-                                modelTransform.scale
+                                this.modelTransform.scale,
+                                -this.modelTransform.scale,
+                                this.modelTransform.scale
                             )
                         )
                         .multiply(rotationX)
                         .multiply(rotationY)
                         .multiply(rotationZ);
-                    
+
                     this.modelConfig.camera.projectionMatrix = m.multiply(l);
                     this.modelConfig.renderer.resetState();
-                    this.modelConfig.renderer.render(this.modelConfig.scene, this.modelConfig.camera);
+                    this.modelConfig.renderer.render(
+                        this.modelConfig.scene,
+                        this.modelConfig.camera
+                    );
                     this.map.triggerRepaint();
                 },
             };
@@ -484,6 +678,44 @@ export default {
                 this.map.moveLayer("sandiego_parcels", "building-extrusion");
 
                 this.map.on("mousemove", "sandiego_parcels", (e) => {
+                    //let model3d = this.map.getLayer("3d-model");
+                    //console.log(model3d);
+
+                    let polygon1 = this.$turf.polygon(
+                        [
+                            [
+                                [128, -26],
+                                [141, -26],
+                                [141, -21],
+                                [128, -21],
+                                [128, -26],
+                            ],
+                        ],
+                        {
+                            fill: "#F00",
+                            "fill-opacity": 0.1,
+                        }
+                    );
+
+                    var polygon2 = this.$turf.polygon(
+                        [
+                            [
+                                [126, -28],
+                                [140, -28],
+                                [140, -20],
+                                [126, -20],
+                                [126, -28],
+                            ],
+                        ],
+                        {
+                            fill: "#00F",
+                            "fill-opacity": 0.1,
+                        }
+                    );
+
+                    var difference = this.$turf.difference(polygon1, polygon2);
+                    //console.log(difference);
+                    //if the result is null
                     if (this.parcelId != e.features[0].properties.parcel_id) {
                         this.parcelId = e.features[0].properties.parcel_id;
 
@@ -526,6 +758,10 @@ export default {
                     }
                     hoveredStateId = null;
                 });
+
+                this.map.once("idle", (e) => {
+                    this.initMarker();
+                });
             });
         },
 
@@ -558,6 +794,30 @@ export default {
             });
         },
 
+        initMarker() {
+            //creating marker
+            this.marker = new this.$mapboxgl.Marker({
+                color: "blue",
+                draggable: true,
+            })
+                .setLngLat([this.coordinates.lng, this.coordinates.lat])
+                .addTo(this.map);
+
+            let contentLayer = this.map.getLayer("sandiego_parcels");
+
+            console.log(contentLayer);
+            console.log(this.marker._pos);
+
+            let contentRender = this.map.queryRenderedFeatures(
+                this.marker._pos,
+                {
+                    layers: ["sandiego_parcels"],
+                }
+            );
+
+            console.log(contentRender);
+        },
+
         //fetch's
         async getAddress() {
             let params = {
@@ -582,7 +842,7 @@ export default {
             });
 
             //bounds to get parcel center
-            this.centeredView(this.geojsonArrays);
+            //this.centeredView(this.geojsonArrays);
 
             if (this.map.getLayer("outlineSelected"))
                 this.map.removeLayer("outlineSelected");
@@ -663,6 +923,64 @@ export default {
                     query: this.coordinates,
                 });
             },
+        },
+        "modelConfig.rotate": {
+            handler(value, old) {
+                this.modelAsMercatorCoordinate =
+                    this.$mapboxgl.MercatorCoordinate.fromLngLat(
+                        [this.modelLngLat.lng, this.modelLngLat.lat],
+                        this.modelAltitude
+                    );
+
+                this.modelTransform = {
+                    translateX: this.modelAsMercatorCoordinate.x,
+                    translateY: this.modelAsMercatorCoordinate.y,
+                    translateZ: this.modelAsMercatorCoordinate.z,
+                    rotateX: this.modelRotate[0],
+                    rotateY: (value / 360) * 4,
+                    rotateZ: this.modelRotate[2],
+
+                    scale: this.modelAsMercatorCoordinate.meterInMercatorCoordinateUnits(),
+                };
+            },
+        },
+
+        floorPlanCoordinates: {
+            deep: true,
+            handler: debounce(function (value, old) {
+                //console.log("changing parcel");
+                //console.log(value);
+
+                value.forEach((item) => {
+                    this.marker = new this.$mapboxgl.Marker({
+                        color: "blue",
+                        draggable: true,
+                    })
+                        .setLngLat(item)
+                        .addTo(this.map);
+
+                    //let contentLayer = this.map.getLayer("sandiego_parcels");
+
+                    let contentRender = this.map.queryRenderedFeatures(
+                        this.marker._pos,
+                        {
+                            layers: ["sandiego_parcels"],
+                        }
+                    );
+
+                    this.marker.remove();
+                    if(contentRender.length === 0) 
+                    {
+                        console.log("Can't set ADU there");
+                        return;
+                    }
+
+                    if( this.polygon.parcel_id != contentRender[0].properties.parcel_id)
+                    {
+                        console.log("Can't set ADU there");
+                    }
+                });
+            }, 500),
         },
 
         parcelId: debounce(async function (value, old) {

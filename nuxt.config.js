@@ -48,6 +48,9 @@ export default {
         {
             src: "~/plugins/imports/gltfLoader.js",
         },
+        {
+            src: "~/plugins/imports/turf.js",
+        },
     ],
 
     // Auto import components: https://go.nuxtjs.dev/config-components

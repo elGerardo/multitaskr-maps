@@ -95,9 +95,11 @@ export default {
       });
 
       this.search.addEventListener("retrieve", (event) => {
+        console.log(event);
         this.coordinates.lat = event.detail.features[0].geometry.coordinates[1];
         this.coordinates.lng = event.detail.features[0].geometry.coordinates[0];
       });
+
     },
 
     onSubmit() {
