@@ -20,79 +20,18 @@
                     placeholder="rotate"
                     style="width: 350px"
                 ></b-form-spinbutton>
+                <b-button @click="movingFloorplan = true"
+                    >Move Floorplan</b-button
+                >
+                <span v-show="!allowedADU" class="badge badge-danger"
+                    >Can't set ADU</span
+                >
+                <span v-show="allowedADU" class="badge badge-success"
+                    >Success</span
+                >
+                <b-button @click="polygonRotate += 10">Rotate +</b-button>
+                <b-button @click="polygonRotate -= 10">Rotate -</b-button>
             </div>
-            <!--
-            <b-row class="my-2">
-                <b-col>
-                    <b-button
-                        @click="initPolygonDraw()"
-                        variant="outline-primary"
-                        >Draw Polygon</b-button
-                    >
-                </b-col>
-                <b-col>
-                    <b-button
-                        @click="
-                            (mapStyle =
-                                'mapbox://styles/elgerardo/cl8yrf6l1000e15o68btt9hgi'),
-                                map.remove(),
-                                setupMap()
-                        "
-                        variant="info"
-                        >Default</b-button
-                    >
-                </b-col>
-            </b-row>
-            <b-row class="my-2">
-                <b-col>
-                    <b-button
-                        @click="
-                            (mapStyle =
-                                'mapbox://styles/soloskilos/cl8ywrz0j000l14mrphfgsifg'),
-                                map.remove(),
-                                setupMap()
-                        "
-                        variant="info"
-                        >Satellite</b-button
-                    >
-                </b-col>
-                <b-col>
-                    <b-button
-                        @click="
-                            (mapStyle =
-                                'mapbox://styles/soloskilos/cl8s8ldp4000w15phd0pcw50r'),
-                                map.remove(),
-                                setupMap()
-                        "
-                        variant="info"
-                        >Default 2</b-button
-                    >
-                </b-col>
-            </b-row>
-            <input
-                    name="apartment"
-                    placeholder="apartment"
-                    autocomplete="shipping address-line2"
-                    v-model="form.apartment"
-                />
-                <input
-                    name="city"
-                    placeholder="city"
-                    autocomplete="shipping address-level2"
-                    v-model="form.city"
-                />
-                <input
-                    name="state"
-                    placeholder="state"
-                    autocomplete="shipping address-level1"
-                    v-model="form.state"
-                />
-                <input
-                    name="country"
-                    placeholder="country"
-                    autocomplete="shipping country"
-                    v-model="form.country"
-                />-->
         </form>
         <b-button
             v-b-toggle.sidebar-menu
@@ -216,6 +155,9 @@ export default {
             modelAltitude: null,
             modelOrigin: null,
             floorPlanCoordinates: null,
+            allowedADU: true,
+            polygonRotate: 0,
+            movingFloorplan: false,
             //scene: null,
             //camera: null
         };
@@ -285,9 +227,35 @@ export default {
             this.map.on("load", () => {});
 
             this.map.on("style.load", () => {
-                //this.map.addLayer(this.add3dModel());
+                this.map.on("mousemove", "maineSelected", (e) => {
+                    if (this.movingFloorplan) {
+                        this.polygonValidationCoordinates = [
+                            e.lngLat.lng,
+                            e.lngLat.lat,
+                        ];
+                        this.addTurfShape(
+                            false,
+                            this.polygonValidationCoordinates
+                        );
+                    }
+                });
 
-                this.addDragShape();
+                this.map.on("click", "maineSelected", (e) => {
+                    if (this.allowedADU) {
+                        this.movingFloorplan = false;
+                    }
+                });
+
+                this.map.on("mousemove", "transform_floor_plan", (e) => {
+                    //console.log("moving on floorplan...");
+                });
+
+                this.addTurfShape(
+                    true,
+                    [-117.18615529531306, 32.83743823481869]
+                );
+                //this.map.addLayer(this.add3dModel());
+                //this.addDragShape();
                 //this.addTurfCircle();
 
                 /*this.map.on("mousemove", "3d-model", (e) => {
@@ -300,10 +268,6 @@ export default {
 
                 this.initSources();
 
-                this.map.on("mousemove", "circle_floor_plan", (e) => {
-                    console.log("on circle...");
-                });
-
                 //this.initMarker();
                 /*this.map.on("idle", (e) => {
                     //marker
@@ -312,127 +276,74 @@ export default {
             });
         },
 
-        addDragShape() {
-            let canvas = this.map.getCanvasContainer();
+        addTurfShape(firstTime, coordinates) {
+            var polygon = this.$turf.polygon([
+                [
+                    [-117.18605148256043, 32.83737944284863],
+                    [-117.18605148256043, 32.83741344284863],
+                    [-117.18611548256044, 32.83741344284863],
+                    [-117.18611548256044, 32.83737944284863],
+                    [-117.18605148256043, 32.83737944284863],
+                ],
+            ]);
 
-            var geojson = {
-                type: "FeatureCollection",
-                features: [
-                    {
-                        type: "Feature",
-                        geometry: {
-                            type: "Polygon",
-                            // These coordinates outline Maine.
-                            coordinates: [
-                                [
-                                    [-117.18605148256043, 32.83737944284863],
-                                    [-117.18605148256043, 32.83741344284863],
-                                    [-117.18611548256044, 32.83741344284863],
-                                    [-117.18611548256044, 32.83737944284863],
-                                    [-117.18605148256043, 32.83737944284863],
+            let center = this.$turf.centroid(polygon);
 
-                                    /*[1.85, 42.1],
-                                    [1.85, 41.75],
-                                    [2.5, 41.75],
-                                    [2.5, 42.1],
-                                    [1.85, 42.1],*/
-                                ],
-                            ],
-                        },
-                    },
+            var options = {
+                pivot: [
+                    center.geometry.coordinates[0],
+                    center.geometry.coordinates[1],
                 ],
             };
+            var rotatedPoly = this.$turf.transformRotate(
+                polygon,
+                this.polygonRotate,
+                options
+            );
 
-            let onMove = (e) => {
-                const coords = e.lngLat;
+            let from = this.$turf.point([
+                center.geometry.coordinates[0],
+                center.geometry.coordinates[1],
+            ]);
 
-                // Set a UI indicator for dragging.
-                canvas.style.cursor = "grabbing";
+            let to = this.$turf.point(coordinates);
 
-                // Update the Point feature in `geojson` coordinates
-                // and call setData to the source layer `point` on it.
-                //geojson.features[0].geometry.coordinates = [coords.lng, coords.lat];
+            let bearing = this.$turf.rhumbBearing(from, to);
 
-                //console.log(`${coords.lat} - ${coords.lng}`);
+            let distance = this.$turf.rhumbDistance(from, to);
 
-                let north = coords.lat - 0.000017;
-                let west = coords.lng +  0.000032;
-                let south = coords.lat + 0.000017;
-                let east = coords.lng -  0.000032;
+            var translatedPoly = this.$turf.transformTranslate(
+                rotatedPoly,
+                distance,
+                bearing
+            );
 
-                this.floorPlanCoordinates = [
-                    [west, north],
-                    [west, south],
-                    [east, south],
-                    [east, north],
-                    [west, north],
-                ];
+            if (firstTime) {
+                this.map.addSource("polygon_floorplan", {
+                    type: "geojson",
+                    data: translatedPoly,
+                });
 
-                geojson.features[0].geometry.coordinates = [
-                    [
-                        [west, north],
-                        [west, south],
-                        [east, south],
-                        [east, north],
-                        [west, north],
-                    ],
-                ];
-                this.map.getSource("pol").setData(geojson);
-            };
+                this.map.addLayer({
+                    id: "transform_floor_plan",
+                    type: "fill",
+                    source: "polygon_floorplan",
+                    paint: {
+                        "fill-color": "blue",
+                    },
+                    layout: {},
+                });
+                return;
+            }
 
-            let onUp = (e) => {
-                // Print the coordinates of where the point had
-                // finished being dragged to on the map.
-                canvas.style.cursor = "";
+            this.map.getSource("polygon_floorplan").setData(translatedPoly);
 
-                // Unbind mouse/touch events
-                this.map.off("mousemove", onMove);
-                this.map.off("touchmove", onMove);
-            };
+            let floorplanSource = this.map.getSource("polygon_floorplan");
 
-            this.map.addSource("pol", {
-                type: "geojson",
-                data: geojson,
-            });
+            this.floorPlanCoordinates =
+                floorplanSource._data.geometry.coordinates[0];
 
-            this.map.addLayer({
-                id: "point",
-                type: "fill",
-                source: "pol",
-                paint: {
-                    "fill-color": "#0080ff", // blue color fill
-                    "fill-opacity": 0.5,
-                },
-            });
-
-            this.map.on("mouseenter", "point", () => {
-                //map.setPaintProperty('point', 'circle-color', '#3bb2d0');
-                canvas.style.cursor = "move";
-            });
-
-            this.map.on("mouseleave", "point", () => {
-                //map.setPaintProperty('point', 'circle-color', '#3887be');
-                canvas.style.cursor = "";
-            });
-
-            this.map.on("mousedown", "point", (e) => {
-                // Prevent the default map drag behavior.
-                e.preventDefault();
-                canvas.style.cursor = "grab";
-
-                this.map.on("mousemove", onMove);
-                this.map.once("mouseup", onUp);
-            });
-
-            this.map.on("touchstart", "point", (e) => {
-                if (e.points.length !== 1) return;
-
-                // Prevent the default map drag behavior.
-                e.preventDefault();
-
-                this.map.on("touchmove", onMove);
-                this.map.once("touchend", onUp);
-            });
+            return;
         },
 
         addTurfCircle() {
@@ -805,17 +716,12 @@ export default {
 
             let contentLayer = this.map.getLayer("sandiego_parcels");
 
-            console.log(contentLayer);
-            console.log(this.marker._pos);
-
             let contentRender = this.map.queryRenderedFeatures(
                 this.marker._pos,
                 {
                     layers: ["sandiego_parcels"],
                 }
             );
-
-            console.log(contentRender);
         },
 
         //fetch's
@@ -913,6 +819,129 @@ export default {
 
             this.map.fitBounds(bounds, {});
         },
+
+        addDragShape_not_working() {
+            let canvas = this.map.getCanvasContainer();
+
+            var geojson = {
+                type: "FeatureCollection",
+                features: [
+                    {
+                        type: "Feature",
+                        geometry: {
+                            type: "Polygon",
+                            // These coordinates outline Maine.
+                            coordinates: [
+                                [
+                                    [-117.18605148256043, 32.83737944284863],
+                                    [-117.18605148256043, 32.83741344284863],
+                                    [-117.18611548256044, 32.83741344284863],
+                                    [-117.18611548256044, 32.83737944284863],
+                                    [-117.18605148256043, 32.83737944284863],
+
+                                    /*[1.85, 42.1],
+                                    [1.85, 41.75],
+                                    [2.5, 41.75],
+                                    [2.5, 42.1],
+                                    [1.85, 42.1],*/
+                                ],
+                            ],
+                        },
+                    },
+                ],
+            };
+
+            let onMove = (e) => {
+                const coords = e.lngLat;
+
+                // Set a UI indicator for dragging.
+                canvas.style.cursor = "grabbing";
+
+                // Update the Point feature in `geojson` coordinates
+                // and call setData to the source layer `point` on it.
+                //geojson.features[0].geometry.coordinates = [coords.lng, coords.lat];
+
+                //console.log(`${coords.lat} - ${coords.lng}`);
+
+                let north = coords.lat - 0.000017;
+                let west = coords.lng + 0.000032;
+                let south = coords.lat + 0.000017;
+                let east = coords.lng - 0.000032;
+
+                this.floorPlanCoordinates = [
+                    [west, north],
+                    [west, south],
+                    [east, south],
+                    [east, north],
+                    [west, north],
+                ];
+
+                geojson.features[0].geometry.coordinates = [
+                    [
+                        [west, north],
+                        [west, south],
+                        [east, south],
+                        [east, north],
+                        [west, north],
+                    ],
+                ];
+                this.map.getSource("pol").setData(geojson);
+            };
+
+            let onUp = (e) => {
+                // Print the coordinates of where the point had
+                // finished being dragged to on the map.
+                canvas.style.cursor = "";
+
+                // Unbind mouse/touch events
+                this.map.off("mousemove", onMove);
+                this.map.off("touchmove", onMove);
+            };
+
+            this.map.addSource("pol", {
+                type: "geojson",
+                data: geojson,
+            });
+
+            this.map.addLayer({
+                id: "point",
+                type: "fill",
+                source: "pol",
+                paint: {
+                    "fill-color": "#0080ff", // blue color fill
+                    "fill-opacity": 0.5,
+                },
+            });
+
+            this.map.on("mouseenter", "point", () => {
+                //map.setPaintProperty('point', 'circle-color', '#3bb2d0');
+                canvas.style.cursor = "move";
+            });
+
+            this.map.on("mouseleave", "point", () => {
+                //map.setPaintProperty('point', 'circle-color', '#3887be');
+                canvas.style.cursor = "";
+            });
+
+            this.map.on("mousedown", "point", (e) => {
+                // Prevent the default map drag behavior.
+                e.preventDefault();
+                canvas.style.cursor = "grab";
+
+                this.map.on("mousemove", onMove);
+                this.map.once("mouseup", onUp);
+            });
+
+            this.map.on("touchstart", "point", (e) => {
+                if (e.points.length !== 1) return;
+
+                // Prevent the default map drag behavior.
+                e.preventDefault();
+
+                this.map.on("touchmove", onMove);
+                this.map.once("touchend", onUp);
+            });
+        },
     },
 
     watch: {
@@ -950,37 +979,54 @@ export default {
             handler: debounce(function (value, old) {
                 //console.log("changing parcel");
                 //console.log(value);
-
+                var finishLoop = false;
                 value.forEach((item) => {
-                    this.marker = new this.$mapboxgl.Marker({
-                        color: "blue",
-                        draggable: true,
-                    })
-                        .setLngLat(item)
-                        .addTo(this.map);
+                    console.log(finishLoop);
+                    if (!finishLoop) {
+                        this.marker = new this.$mapboxgl.Marker({
+                            color: "blue",
+                            draggable: true,
+                        })
+                            .setLngLat(item)
+                            .addTo(this.map);
 
-                    //let contentLayer = this.map.getLayer("sandiego_parcels");
+                        //let contentLayer = this.map.getLayer("sandiego_parcels");
 
-                    let contentRender = this.map.queryRenderedFeatures(
-                        this.marker._pos,
-                        {
-                            layers: ["sandiego_parcels"],
+                        let contentRender = this.map.queryRenderedFeatures(
+                            this.marker._pos,
+                            {
+                                layers: ["sandiego_parcels"],
+                            }
+                        );
+
+                        this.marker.remove();
+                        this.allowedADU = true;
+
+                        if (contentRender.length === 0) {
+                            console.log("Can't set ADU there");
+                            this.allowedADU = false;
+                            finishLoop = true;
+                            return;
                         }
-                    );
 
-                    this.marker.remove();
-                    if(contentRender.length === 0) 
-                    {
-                        console.log("Can't set ADU there");
-                        return;
-                    }
-
-                    if( this.polygon.parcel_id != contentRender[0].properties.parcel_id)
-                    {
-                        console.log("Can't set ADU there");
+                        if (
+                            this.polygon.parcel_id !=
+                            contentRender[0].properties.parcel_id
+                        ) {
+                            console.log("Can't set ADU there");
+                            this.allowedADU = false;
+                            finishLoop = true;
+                            return;
+                        }
                     }
                 });
             }, 500),
+        },
+
+        polygonRotate: {
+            handler: function (value, old) {
+                this.addTurfShape(false, this.polygonValidationCoordinates);
+            },
         },
 
         parcelId: debounce(async function (value, old) {
