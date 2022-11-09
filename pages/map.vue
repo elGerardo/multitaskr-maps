@@ -10,7 +10,7 @@
                     v-model="form.address"
                 />
                 <b-button id="setAdu">Set Adu</b-button>
-                <b-form-spinbutton
+                <!--<b-form-spinbutton
                     v-model="modelConfig.rotate"
                     id="sb-wrap"
                     wrap
@@ -19,7 +19,7 @@
                     max="360"
                     placeholder="rotate"
                     style="width: 350px"
-                ></b-form-spinbutton>
+                ></b-form-spinbutton>-->
                 <b-button @click="movingFloorplan = true"
                     >Move Floorplan</b-button
                 >
@@ -29,8 +29,8 @@
                 <span v-show="allowedADU" class="badge badge-success"
                     >Success</span
                 >
-                <b-button @click="polygonRotate += 10">Rotate +</b-button>
-                <b-button @click="polygonRotate -= 10">Rotate -</b-button>
+                <b-button @click="adu.rotate += 10">Rotate +</b-button>
+                <b-button @click="adu.rotate -= 10">Rotate -</b-button>
             </div>
         </form>
         <b-button
@@ -82,7 +82,7 @@
                             </b-col>
                             <b-col>
                                 <span>PROPERTY ID</span>
-                                <p>{{ parcelId }}</p>
+                                <p>{{ parcel.hover }}</p>
                             </b-col>
                         </b-row>
                     </b-tab>
@@ -99,8 +99,6 @@ import { mapGetters } from "vuex";
 import { debounce } from "lodash";
 import * as THREE from "three";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader";
-import { DragControls } from "three/examples/jsm/controls/DragControls";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 
 export default {
     async fetch({ store, route }) {
@@ -124,8 +122,6 @@ export default {
             coordinates: {
                 lat: this.$route.query.lat,
                 lng: this.$route.query.lng,
-                //lat: -35.39847,
-                //lng: 148.9819
             },
             modelLngLat: {
                 lat: this.$route.query.lat,
@@ -138,17 +134,28 @@ export default {
                 state: null,
                 country: null,
             },
-            urlSourceParcel: "mapbox://martoast.citysandiego",
-            sourceLayer: "citysandiego",
-            parcelId: null,
-            tooltipId: null,
-            hoveredStateId: null,
+            parcel: {
+                hover: null,
+                selected: null,
+            },
+            adu: {
+                centerCoordinates: null,
+                polygonCoordinate: null,
+                rotate: 0,
+                isMoving: false,
+                isAllowed: true,
+            },
             modelConfig: {
                 camera: null,
                 scene: null,
                 renderer: null,
                 rotate: 0,
             },
+            centerBound: null,
+            urlSourceParcel: "mapbox://martoast.citysandiego",
+            sourceLayer: "citysandiego",
+            tooltipId: null,
+            hoveredStateId: null,
             modelTransform: null,
             modelAsMercatorCoordinate: null,
             modelRotate: null,
@@ -156,7 +163,6 @@ export default {
             modelOrigin: null,
             floorPlanCoordinates: null,
             allowedADU: true,
-            polygonRotate: 0,
             movingFloorplan: false,
             //scene: null,
             //camera: null
@@ -178,21 +184,8 @@ export default {
     methods: {
         setupMap() {
             this.initMap();
-            this.initSearch();
-
-            //first time the page is loaded
-            this.getPolygons(this.coordinates);
-
             //Hover to parcels
             this.initHoverParcel();
-        },
-
-        initSources() {
-            this.map.addSource("parcel_source", {
-                type: "vector",
-                url: this.urlSourceParcel,
-                generateId: true,
-            });
         },
 
         initMap() {
@@ -206,8 +199,6 @@ export default {
                 bearing: -17.6, // rotation
                 antialias: true,
                 center: [this.coordinates.lng, this.coordinates.lat],
-                //                projection: "globe", // display the map as a 3D globe,
-                //                attributionControl: false,
             });
 
             //fetch to API when make a click
@@ -224,21 +215,12 @@ export default {
                 this.config.zoom = this.map.getZoom();
             });
 
-            this.map.on("load", () => {});
-
             this.map.on("style.load", () => {
-                this.map.on("mousemove", "maineSelected", (e) => {
-                    if (this.movingFloorplan) {
-                        this.polygonValidationCoordinates = [
-                            e.lngLat.lng,
-                            e.lngLat.lat,
-                        ];
-                        this.addTurfShape(
-                            false,
-                            this.polygonValidationCoordinates
-                        );
-                    }
-                });
+                this.initSources();
+
+                this.initSearch();
+                //first time the page is loaded
+                this.getPolygons(this.coordinates);
 
                 this.map.on("click", "maineSelected", (e) => {
                     if (this.allowedADU) {
@@ -246,38 +228,215 @@ export default {
                     }
                 });
 
-                this.map.on("mousemove", "transform_floor_plan", (e) => {
-                    //console.log("moving on floorplan...");
+                this.map.on("mousemove", "maineSelected", (e) => {
+                    if (this.movingFloorplan) {
+                        this.adu.centerCoordinates = [
+                            e.lngLat.lng,
+                            e.lngLat.lat,
+                        ];
+                        this.addFloorPlanADU(e.lngLat);
+                    }
                 });
-
-                this.addTurfShape(
-                    true,
-                    [-117.18615529531306, 32.83743823481869]
-                );
-                //this.map.addLayer(this.add3dModel());
-                //this.addDragShape();
-                //this.addTurfCircle();
-
-                /*this.map.on("mousemove", "3d-model", (e) => {
-                    //                    console.log("moving 3d model...");
-                });
-
-                this.map.on("mousemove", "building-extrusion", (e) => {
-                    //                    console.log("touching 3d...");
-                });*/
-
-                this.initSources();
-
-                //this.initMarker();
-                /*this.map.on("idle", (e) => {
-                    //marker
-
-                });*/
             });
         },
 
-        addTurfShape(firstTime, coordinates) {
-            var polygon = this.$turf.polygon([
+        initSources() {
+            this.map.addSource("parcel_source", {
+                type: "vector",
+                url: this.urlSourceParcel,
+                generateId: true,
+            });
+        },
+
+        initTooltip() {
+            this.popup = new this.$mapboxgl.Popup({
+                closeButton: false,
+                closeOnClick: false,
+            });
+            this.map.on("mousemove", "sandiego_parcels", (e) => {
+                if (this.tooltipId != e.features[0].properties.parcel_id) {
+                    this.tooltipId = e.features[0].properties.parcel_id;
+                    this.popup
+                        .setLngLat(e.lngLat)
+                        .setHTML(e.features[0].properties.parcel_id)
+                        .addTo(this.map);
+                }
+            });
+
+            this.map.on("mouseleave", "sandiego_parcels", (e) => {
+                this.popup.remove();
+            });
+        },
+
+        initHoverParcel() {
+            let hoveredStateId = null;
+
+            this.map.on("load", (e) => {
+                this.map.addLayer({
+                    id: "sandiego_parcels",
+                    generateId: true,
+                    source: "parcel_source",
+                    "source-layer": this.sourceLayer,
+                    type: "fill",
+                    paint: {
+                        "fill-color": "rgba(133,8,142,0.1)",
+                        "fill-outline-color": "rgba(133,8,142,1)",
+                        "fill-opacity": [
+                            "case",
+                            ["boolean", ["feature-state", "hover"], false],
+                            1,
+                            0.5,
+                        ],
+                    },
+                });
+
+                this.map.moveLayer("sandiego_parcels", "building-extrusion");
+
+                this.map.on("mousemove", "sandiego_parcels", (e) => {
+                    //let model3d = this.map.getLayer("3d-model");
+                    //console.log(model3d);
+
+                    let polygon1 = this.$turf.polygon(
+                        [
+                            [
+                                [128, -26],
+                                [141, -26],
+                                [141, -21],
+                                [128, -21],
+                                [128, -26],
+                            ],
+                        ],
+                        {
+                            fill: "#F00",
+                            "fill-opacity": 0.1,
+                        }
+                    );
+
+                    var polygon2 = this.$turf.polygon(
+                        [
+                            [
+                                [126, -28],
+                                [140, -28],
+                                [140, -20],
+                                [126, -20],
+                                [126, -28],
+                            ],
+                        ],
+                        {
+                            fill: "#00F",
+                            "fill-opacity": 0.1,
+                        }
+                    );
+
+                    var difference = this.$turf.difference(polygon1, polygon2);
+                    //if the result is null
+                    if (
+                        this.parcel.hover != e.features[0].properties.parcel_id
+                    ) {
+                        this.parcel.hover = e.features[0].properties.parcel_id;
+
+                        if (e.features.length > 0) {
+                            if (hoveredStateId !== null) {
+                                this.map.setFeatureState(
+                                    {
+                                        source: "parcel_source",
+                                        id: hoveredStateId,
+                                        sourceLayer: this.sourceLayer,
+                                    },
+                                    { hover: false }
+                                );
+                            }
+                            hoveredStateId = e.features[0].id;
+                            this.map.setFeatureState(
+                                {
+                                    source: "parcel_source",
+                                    id: hoveredStateId,
+                                    sourceLayer: this.sourceLayer,
+                                },
+                                { hover: true }
+                            );
+                        }
+                    }
+                });
+
+                // When the mouse leaves the state-fill layer, update the feature state of the
+                // previously hovered feature.
+                this.map.on("mouseleave", "sandiego_parcels", () => {
+                    if (hoveredStateId !== null) {
+                        this.map.setFeatureState(
+                            {
+                                source: "parcel_source",
+                                id: hoveredStateId,
+                                sourceLayer: this.sourceLayer,
+                            },
+                            { hover: false }
+                        );
+                    }
+                    hoveredStateId = null;
+                });
+
+                this.map.once("idle", (e) => {
+                    this.initMarker();
+                });
+            });
+        },
+
+        initSearch() {
+            this.search = this.$search.autofill({
+                accessToken: this.access_token,
+                options: { country: "us" },
+                confirmOnBrowserAutofill: true,
+            });
+
+            //watch this function
+
+            this.search.addEventListener("retrieve", (event) => {
+                this.coordinates.lat =
+                    event.detail.features[0].geometry.coordinates[1];
+                this.coordinates.lng =
+                    event.detail.features[0].geometry.coordinates[0];
+                this.map.easeTo({
+                    center: this.coordinates,
+                    speed: 2,
+                    duration: 2500,
+                    curve: 2,
+                });
+
+                //fetch to API
+                this.getPolygons(this.coordinates);
+
+                //this.$refs.sideBarMenu.show();
+                document.getElementById("btn_menu").click;
+                //this.$refs.sideBarMenu.toggle();
+            });
+        },
+
+        initMarker() {
+            //creating marker
+            //it used to get x and y positions and then
+            //take the parcel information
+            this.marker = new this.$mapboxgl.Marker({
+                color: "blue",
+                draggable: true,
+            })
+                .setLngLat([this.coordinates.lng, this.coordinates.lat])
+                .addTo(this.map);
+
+            let contentLayer = this.map.getLayer("sandiego_parcels");
+
+            let contentRender = this.map.queryRenderedFeatures(
+                this.marker._pos,
+                {
+                    layers: ["sandiego_parcels"],
+                }
+            );
+        },
+
+        addFloorPlanADU(coordinates) {
+            this.adu.centerCoordinates = coordinates;
+
+            //ADU size
+            let polygon = this.$turf.polygon([
                 [
                     [-117.18605148256043, 32.83737944284863],
                     [-117.18605148256043, 32.83741344284863],
@@ -289,15 +448,16 @@ export default {
 
             let center = this.$turf.centroid(polygon);
 
-            var options = {
+            let options = {
                 pivot: [
                     center.geometry.coordinates[0],
                     center.geometry.coordinates[1],
                 ],
             };
-            var rotatedPoly = this.$turf.transformRotate(
+
+            let rotatedPoly = this.$turf.transformRotate(
                 polygon,
-                this.polygonRotate,
+                this.adu.rotate,
                 options
             );
 
@@ -306,7 +466,7 @@ export default {
                 center.geometry.coordinates[1],
             ]);
 
-            let to = this.$turf.point(coordinates);
+            let to = this.$turf.point([coordinates.lng, coordinates.lat]);
 
             let bearing = this.$turf.rhumbBearing(from, to);
 
@@ -318,7 +478,10 @@ export default {
                 bearing
             );
 
-            if (firstTime) {
+            this.adu.polygonCoordinate = translatedPoly.geometry.coordinates[0];
+
+            //first time is added
+            if (!this.map.getSource("polygon_floorplan")) {
                 this.map.addSource("polygon_floorplan", {
                     type: "geojson",
                     data: translatedPoly,
@@ -333,6 +496,12 @@ export default {
                     },
                     layout: {},
                 });
+
+                this.map.moveLayer(
+                    "transform_floor_plan",
+                    "building-extrusion"
+                );
+
                 return;
             }
 
@@ -346,30 +515,90 @@ export default {
             return;
         },
 
-        addTurfCircle() {
-            var center = [this.$route.query.lng, this.$route.query.lat];
-            var radiusTwo = 2.5;
-            var options = {
-                steps: 4,
-                units: "meters",
-                properties: { foo: "bar" },
-            };
+        validateFloorPlanAdu(coordinates) {
+            let finishLoop = false;
+            coordinates.forEach((item) => {
+                if (!finishLoop) {
+                    this.marker = new this.$mapboxgl.Marker({
+                        color: "blue",
+                        draggable: true,
+                    })
+                        .setLngLat(item)
+                        .addTo(this.map);
 
-            var circle = this.$turf.circle(center, radiusTwo, options);
+                    let contentRender = this.map.queryRenderedFeatures(
+                        this.marker._pos,
+                        {
+                            layers: ["sandiego_parcels"],
+                        }
+                    );
 
-            this.map.addLayer({
-                id: "circle_floor_plan",
-                type: "fill",
-                source: {
-                    type: "geojson",
-                    data: circle,
-                    lineMetrics: true,
-                },
-                paint: {
-                    "fill-color": "red",
-                },
-                layout: {},
+                    let contentRenderBuilding = this.map.queryRenderedFeatures(
+                        this.marker._pos,
+                        {
+                            layers: ["building-extrusion"],
+                        }
+                    );
+
+                    this.allowedADU = true;
+                    this.marker.remove();
+
+                    if (contentRenderBuilding.length > 0) {
+                        this.allowedADU = false;
+                        finishLoop = true;
+                        return;
+                    }
+
+                    if (contentRender.length === 0) {
+                        this.allowedADU = false;
+                        finishLoop = true;
+                        return;
+                    }
+
+                    if (
+                        this.polygon.parcel_id !=
+                        contentRender[0].properties.parcel_id
+                    ) {
+                        this.allowedADU = false;
+                        finishLoop = true;
+                        return;
+                    }
+                }
             });
+        },
+
+        addParcelPointGrid(coordinates) {
+            let polygon = this.$turf.polygon([coordinates]);
+            let bbox = this.$turf.bbox(polygon);
+            let cellSide = 3;
+            let options = { units: "meters" };
+            let grid = this.$turf.pointGrid(bbox, cellSide, options);
+
+            for (let index = 0; index < grid.features.length; index++) {
+                
+                let markerLoop = new this.$mapboxgl.Marker({
+                    color: "blue",
+                    draggable: true,
+                })
+                    .setLngLat(grid.features[index].geometry.coordinates)
+                    .addTo(this.map);
+
+                console.log(markerLoop._pos);
+
+                let contentRenderBuildings = this.map.queryRenderedFeatures(
+                    markerLoop._pos,
+                    {
+                        layers: ["building-extrusion"],
+                    }
+                );
+
+                console.log(contentRenderBuildings);
+                if (contentRenderBuildings.length > 0) {
+                    console.log("contentRenderBuildings");
+                    console.log(contentRenderBuildings);
+                    index = grid.features.length;
+                }
+            }
         },
 
         add3dModel() {
@@ -544,186 +773,6 @@ export default {
             return customLayer;
         },
 
-        initTooltip() {
-            this.popup = new this.$mapboxgl.Popup({
-                closeButton: false,
-                closeOnClick: false,
-            });
-            this.map.on("mousemove", "sandiego_parcels", (e) => {
-                if (this.tooltipId != e.features[0].properties.parcel_id) {
-                    this.tooltipId = e.features[0].properties.parcel_id;
-                    this.popup
-                        .setLngLat(e.lngLat)
-                        .setHTML(e.features[0].properties.parcel_id)
-                        .addTo(this.map);
-                }
-            });
-
-            this.map.on("mouseleave", "sandiego_parcels", (e) => {
-                this.popup.remove();
-            });
-        },
-
-        initHoverParcel() {
-            let hoveredStateId = null;
-
-            this.map.on("load", (e) => {
-                this.map.addLayer({
-                    id: "sandiego_parcels",
-                    generateId: true,
-                    source: "parcel_source",
-                    "source-layer": this.sourceLayer,
-                    type: "fill",
-                    paint: {
-                        "fill-color": "rgba(133,8,142,0.1)",
-                        "fill-outline-color": "rgba(133,8,142,1)",
-                        "fill-opacity": [
-                            "case",
-                            ["boolean", ["feature-state", "hover"], false],
-                            1,
-                            0.5,
-                        ],
-                    },
-                });
-
-                this.map.moveLayer("sandiego_parcels", "building-extrusion");
-
-                this.map.on("mousemove", "sandiego_parcels", (e) => {
-                    //let model3d = this.map.getLayer("3d-model");
-                    //console.log(model3d);
-
-                    let polygon1 = this.$turf.polygon(
-                        [
-                            [
-                                [128, -26],
-                                [141, -26],
-                                [141, -21],
-                                [128, -21],
-                                [128, -26],
-                            ],
-                        ],
-                        {
-                            fill: "#F00",
-                            "fill-opacity": 0.1,
-                        }
-                    );
-
-                    var polygon2 = this.$turf.polygon(
-                        [
-                            [
-                                [126, -28],
-                                [140, -28],
-                                [140, -20],
-                                [126, -20],
-                                [126, -28],
-                            ],
-                        ],
-                        {
-                            fill: "#00F",
-                            "fill-opacity": 0.1,
-                        }
-                    );
-
-                    var difference = this.$turf.difference(polygon1, polygon2);
-                    //console.log(difference);
-                    //if the result is null
-                    if (this.parcelId != e.features[0].properties.parcel_id) {
-                        this.parcelId = e.features[0].properties.parcel_id;
-
-                        if (e.features.length > 0) {
-                            if (hoveredStateId !== null) {
-                                this.map.setFeatureState(
-                                    {
-                                        source: "parcel_source",
-                                        id: hoveredStateId,
-                                        sourceLayer: this.sourceLayer,
-                                    },
-                                    { hover: false }
-                                );
-                            }
-                            hoveredStateId = e.features[0].id;
-                            this.map.setFeatureState(
-                                {
-                                    source: "parcel_source",
-                                    id: hoveredStateId,
-                                    sourceLayer: this.sourceLayer,
-                                },
-                                { hover: true }
-                            );
-                        }
-                    }
-                });
-
-                // When the mouse leaves the state-fill layer, update the feature state of the
-                // previously hovered feature.
-                this.map.on("mouseleave", "sandiego_parcels", () => {
-                    if (hoveredStateId !== null) {
-                        this.map.setFeatureState(
-                            {
-                                source: "parcel_source",
-                                id: hoveredStateId,
-                                sourceLayer: this.sourceLayer,
-                            },
-                            { hover: false }
-                        );
-                    }
-                    hoveredStateId = null;
-                });
-
-                this.map.once("idle", (e) => {
-                    this.initMarker();
-                });
-            });
-        },
-
-        initSearch() {
-            this.search = this.$search.autofill({
-                accessToken: this.access_token,
-                options: { country: "us" },
-                confirmOnBrowserAutofill: true,
-            });
-
-            //watch this function
-
-            this.search.addEventListener("retrieve", (event) => {
-                this.coordinates.lat =
-                    event.detail.features[0].geometry.coordinates[1];
-                this.coordinates.lng =
-                    event.detail.features[0].geometry.coordinates[0];
-                this.map.easeTo({
-                    center: this.coordinates,
-                    speed: 2,
-                    duration: 2500,
-                    curve: 2,
-                });
-                //fetch to API
-                this.getPolygons(this.coordinates);
-
-                //this.$refs.sideBarMenu.show();
-                document.getElementById("btn_menu").click;
-                //this.$refs.sideBarMenu.toggle();
-            });
-        },
-
-        initMarker() {
-            //creating marker
-            this.marker = new this.$mapboxgl.Marker({
-                color: "blue",
-                draggable: true,
-            })
-                .setLngLat([this.coordinates.lng, this.coordinates.lat])
-                .addTo(this.map);
-
-            let contentLayer = this.map.getLayer("sandiego_parcels");
-
-            let contentRender = this.map.queryRenderedFeatures(
-                this.marker._pos,
-                {
-                    layers: ["sandiego_parcels"],
-                }
-            );
-        },
-
         //fetch's
         async getAddress() {
             let params = {
@@ -738,62 +787,70 @@ export default {
         async getPolygons(lngLat) {
             await this.$store.dispatch("polygons/find", lngLat);
 
-            let itemsArrays = JSON.parse(this.polygon.geojson).coordinates;
-            this.geojsonArrays = [];
+            if (this.parcel.selected != this.polygon.parcel_id) {
+                this.parcel.selected = this.polygon.parcel_id;
 
-            //fix response polygons to the polygonSource array
-            itemsArrays[0].forEach((item) => {
-                let itemArray = [item[1], item[0]];
-                this.geojsonArrays.push(itemArray);
-            });
+                let itemsArrays = JSON.parse(this.polygon.geojson).coordinates;
+                this.geojsonArrays = [];
 
-            //bounds to get parcel center
-            //this.centeredView(this.geojsonArrays);
+                //fix response polygons to the polygonSource array
+                itemsArrays[0].forEach((item) => {
+                    let itemArray = [item[1], item[0]];
+                    this.geojsonArrays.push(itemArray);
+                });
 
-            if (this.map.getLayer("outlineSelected"))
-                this.map.removeLayer("outlineSelected");
-            if (this.map.getLayer("maineSelected"))
-                this.map.removeLayer("maineSelected");
-            if (this.map.getSource("polygonSourceSelected"))
-                this.map.removeSource("polygonSourceSelected");
+                //bounds to get parcel center
+                this.centeredView(this.geojsonArrays);
 
-            this.map.addSource("polygonSourceSelected", {
-                type: "geojson",
-                data: {
-                    type: "Feature",
-                    geometry: {
-                        type: "Polygon",
-                        // These coordinates outline Maine.
-                        coordinates: [this.geojsonArrays],
+                this.addParcelPointGrid(this.geojsonArrays);
+
+                if (this.map.getLayer("outlineSelected"))
+                    this.map.removeLayer("outlineSelected");
+                if (this.map.getLayer("maineSelected"))
+                    this.map.removeLayer("maineSelected");
+                if (this.map.getSource("polygonSourceSelected"))
+                    this.map.removeSource("polygonSourceSelected");
+
+                this.map.addSource("polygonSourceSelected", {
+                    type: "geojson",
+                    data: {
+                        type: "Feature",
+                        geometry: {
+                            type: "Polygon",
+                            // These coordinates outline Maine.
+                            coordinates: [this.geojsonArrays],
+                        },
                     },
-                },
-            });
+                });
 
-            // Add a new layer to visualize the polygon.
-            this.map.addLayer({
-                id: "maineSelected",
-                type: "fill",
-                source: "polygonSourceSelected", // reference the data source
-                layout: {},
-                paint: {
-                    "fill-color": "rgb(133,8,142)", // blue color fill
-                    "fill-opacity": 1,
-                },
-            });
-            // Add a black outline around the polygon.
-            this.map.addLayer({
-                id: "outlineSelected",
-                type: "line",
-                source: "polygonSourceSelected",
-                layout: {},
-                paint: {
-                    "line-color": "rgba(133,8,142,1)",
-                    "line-width": 3,
-                },
-            });
+                // Add a new layer to visualize the polygon.
+                this.map.addLayer({
+                    id: "maineSelected",
+                    type: "fill",
+                    source: "polygonSourceSelected", // reference the data source
+                    layout: {},
+                    paint: {
+                        "fill-color": "rgb(133,8,142)", // blue color fill
+                        "fill-opacity": 1,
+                    },
+                });
+                // Add a black outline around the polygon.
+                this.map.addLayer({
+                    id: "outlineSelected",
+                    type: "line",
+                    source: "polygonSourceSelected",
+                    layout: {},
+                    paint: {
+                        "line-color": "rgba(133,8,142,1)",
+                        "line-width": 3,
+                    },
+                });
 
-            this.map.moveLayer("maineSelected", "building-extrusion");
-            this.map.moveLayer("outlineSelected", "building-extrusion");
+                this.map.moveLayer("maineSelected", "building-extrusion");
+                this.map.moveLayer("outlineSelected", "building-extrusion");
+
+                this.addFloorPlanADU(this.centerBound);
+            }
         },
 
         centeredView(coordinates) {
@@ -806,141 +863,16 @@ export default {
                 bounds.extend(coord);
             }
 
-            var center = bounds;
+            this.centerBound = bounds.getCenter();
 
-            //this.marker.setLngLat(center.getCenter());
-
-            this.map.easeTo({
+            /*this.map.easeTo({
                 center: center.getCenter(),
                 speed: 2,
                 duration: 2500,
                 curve: 2,
-            });
+            });*/
 
-            this.map.fitBounds(bounds, {});
-        },
-
-        addDragShape_not_working() {
-            let canvas = this.map.getCanvasContainer();
-
-            var geojson = {
-                type: "FeatureCollection",
-                features: [
-                    {
-                        type: "Feature",
-                        geometry: {
-                            type: "Polygon",
-                            // These coordinates outline Maine.
-                            coordinates: [
-                                [
-                                    [-117.18605148256043, 32.83737944284863],
-                                    [-117.18605148256043, 32.83741344284863],
-                                    [-117.18611548256044, 32.83741344284863],
-                                    [-117.18611548256044, 32.83737944284863],
-                                    [-117.18605148256043, 32.83737944284863],
-
-                                    /*[1.85, 42.1],
-                                    [1.85, 41.75],
-                                    [2.5, 41.75],
-                                    [2.5, 42.1],
-                                    [1.85, 42.1],*/
-                                ],
-                            ],
-                        },
-                    },
-                ],
-            };
-
-            let onMove = (e) => {
-                const coords = e.lngLat;
-
-                // Set a UI indicator for dragging.
-                canvas.style.cursor = "grabbing";
-
-                // Update the Point feature in `geojson` coordinates
-                // and call setData to the source layer `point` on it.
-                //geojson.features[0].geometry.coordinates = [coords.lng, coords.lat];
-
-                //console.log(`${coords.lat} - ${coords.lng}`);
-
-                let north = coords.lat - 0.000017;
-                let west = coords.lng + 0.000032;
-                let south = coords.lat + 0.000017;
-                let east = coords.lng - 0.000032;
-
-                this.floorPlanCoordinates = [
-                    [west, north],
-                    [west, south],
-                    [east, south],
-                    [east, north],
-                    [west, north],
-                ];
-
-                geojson.features[0].geometry.coordinates = [
-                    [
-                        [west, north],
-                        [west, south],
-                        [east, south],
-                        [east, north],
-                        [west, north],
-                    ],
-                ];
-                this.map.getSource("pol").setData(geojson);
-            };
-
-            let onUp = (e) => {
-                // Print the coordinates of where the point had
-                // finished being dragged to on the map.
-                canvas.style.cursor = "";
-
-                // Unbind mouse/touch events
-                this.map.off("mousemove", onMove);
-                this.map.off("touchmove", onMove);
-            };
-
-            this.map.addSource("pol", {
-                type: "geojson",
-                data: geojson,
-            });
-
-            this.map.addLayer({
-                id: "point",
-                type: "fill",
-                source: "pol",
-                paint: {
-                    "fill-color": "#0080ff", // blue color fill
-                    "fill-opacity": 0.5,
-                },
-            });
-
-            this.map.on("mouseenter", "point", () => {
-                //map.setPaintProperty('point', 'circle-color', '#3bb2d0');
-                canvas.style.cursor = "move";
-            });
-
-            this.map.on("mouseleave", "point", () => {
-                //map.setPaintProperty('point', 'circle-color', '#3887be');
-                canvas.style.cursor = "";
-            });
-
-            this.map.on("mousedown", "point", (e) => {
-                // Prevent the default map drag behavior.
-                e.preventDefault();
-                canvas.style.cursor = "grab";
-
-                this.map.on("mousemove", onMove);
-                this.map.once("mouseup", onUp);
-            });
-
-            this.map.on("touchstart", "point", (e) => {
-                if (e.points.length !== 1) return;
-
-                // Prevent the default map drag behavior.
-                e.preventDefault();
-
-                this.map.on("touchmove", onMove);
-                this.map.once("touchend", onUp);
-            });
+            //this.map.fitBounds(bounds, {});
         },
     },
 
@@ -974,62 +906,21 @@ export default {
             },
         },
 
-        floorPlanCoordinates: {
+        "adu.polygonCoordinate": {
             deep: true,
             handler: debounce(function (value, old) {
-                //console.log("changing parcel");
-                //console.log(value);
-                var finishLoop = false;
-                value.forEach((item) => {
-                    console.log(finishLoop);
-                    if (!finishLoop) {
-                        this.marker = new this.$mapboxgl.Marker({
-                            color: "blue",
-                            draggable: true,
-                        })
-                            .setLngLat(item)
-                            .addTo(this.map);
-
-                        //let contentLayer = this.map.getLayer("sandiego_parcels");
-
-                        let contentRender = this.map.queryRenderedFeatures(
-                            this.marker._pos,
-                            {
-                                layers: ["sandiego_parcels"],
-                            }
-                        );
-
-                        this.marker.remove();
-                        this.allowedADU = true;
-
-                        if (contentRender.length === 0) {
-                            console.log("Can't set ADU there");
-                            this.allowedADU = false;
-                            finishLoop = true;
-                            return;
-                        }
-
-                        if (
-                            this.polygon.parcel_id !=
-                            contentRender[0].properties.parcel_id
-                        ) {
-                            console.log("Can't set ADU there");
-                            this.allowedADU = false;
-                            finishLoop = true;
-                            return;
-                        }
-                    }
-                });
-            }, 500),
+                if (this.map.getLayer("sandiego_parcels"))
+                    this.validateFloorPlanAdu(value);
+            }, 250),
         },
 
-        polygonRotate: {
-            handler: function (value, old) {
-                this.addTurfShape(false, this.polygonValidationCoordinates);
+        "adu.rotate": {
+            handler(value, old) {
+                this.addFloorPlanADU(this.adu.centerCoordinates);
             },
         },
 
-        parcelId: debounce(async function (value, old) {
+        "parcel.hover": debounce(async function (value, old) {
             //fetch
             //console.log("debouncing...");
             //console.log(this.parcelId);
