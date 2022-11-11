@@ -9,8 +9,8 @@
                     autocomplete="shipping address-line1"
                     v-model="form.address"
                 />
-                <b-button id="setAdu">Set Adu</b-button>
-                <!--<b-form-spinbutton
+                <!--<b-button id="setAdu">Set Adu</b-button>
+                <b-form-spinbutton
                     v-model="modelConfig.rotate"
                     id="sb-wrap"
                     wrap
@@ -140,10 +140,13 @@ export default {
             },
             adu: {
                 centerCoordinates: null,
-                polygonCoordinate: null,
+                polygonCoordinates: null,
                 rotate: 0,
                 isMoving: false,
                 isAllowed: true,
+            },
+            building: {
+                coordinates: null,
             },
             modelConfig: {
                 camera: null,
@@ -422,6 +425,9 @@ export default {
                 .setLngLat([this.coordinates.lng, this.coordinates.lat])
                 .addTo(this.map);
 
+            this.marker.remove();
+
+            /*
             let contentLayer = this.map.getLayer("sandiego_parcels");
 
             let contentRender = this.map.queryRenderedFeatures(
@@ -430,6 +436,7 @@ export default {
                     layers: ["sandiego_parcels"],
                 }
             );
+            */
         },
 
         addFloorPlanADU(coordinates) {
@@ -478,7 +485,8 @@ export default {
                 bearing
             );
 
-            this.adu.polygonCoordinate = translatedPoly.geometry.coordinates[0];
+            this.adu.polygonCoordinates =
+                translatedPoly.geometry.coordinates[0];
 
             //first time is added
             if (!this.map.getSource("polygon_floorplan")) {
@@ -496,12 +504,14 @@ export default {
                     },
                     layout: {},
                 });
-
+                /*
                 this.map.moveLayer(
                     "transform_floor_plan",
                     "building-extrusion"
                 );
 
+                this.map.moveLayer("transform_floor_plan", "maineselected");
+*/
                 return;
             }
 
@@ -542,13 +552,37 @@ export default {
 
                     this.allowedADU = true;
                     this.marker.remove();
+                    console.log(this.adu.polygonCoordinates);
+                    console.log(this.building.coordinates);
+
+                    if (this.building.coordinates != null) {
+                        let aduPolygon = this.$turf.polygon([
+                            this.adu.polygonCoordinates,
+                        ]);
+
+                        let buildingPolygon = this.$turf.polygon([
+                            this.building.coordinates,
+                        ]);
+
+                        let intersection = this.$turf.intersect(
+                            aduPolygon,
+                            buildingPolygon
+                        );
+                        console.log(intersection);
+                        if (intersection) {
+                            console.log("intersection");
+                            console.log(intersection);
+                            this.allowedADU = false;
+                            finishLoop = true;
+                            return;
+                        }
+                    }
 
                     if (contentRenderBuilding.length > 0) {
                         this.allowedADU = false;
                         finishLoop = true;
                         return;
                     }
-
                     if (contentRender.length === 0) {
                         this.allowedADU = false;
                         finishLoop = true;
@@ -575,15 +609,12 @@ export default {
             let grid = this.$turf.pointGrid(bbox, cellSide, options);
 
             for (let index = 0; index < grid.features.length; index++) {
-                
                 let markerLoop = new this.$mapboxgl.Marker({
                     color: "blue",
                     draggable: true,
                 })
                     .setLngLat(grid.features[index].geometry.coordinates)
                     .addTo(this.map);
-
-                console.log(markerLoop._pos);
 
                 let contentRenderBuildings = this.map.queryRenderedFeatures(
                     markerLoop._pos,
@@ -592,10 +623,16 @@ export default {
                     }
                 );
 
-                console.log(contentRenderBuildings);
+                markerLoop.remove();
+
                 if (contentRenderBuildings.length > 0) {
                     console.log("contentRenderBuildings");
-                    console.log(contentRenderBuildings);
+
+                    this.building.coordinates =
+                        contentRenderBuildings[0].geometry.coordinates[0];
+                    console.log(
+                        contentRenderBuildings[0].geometry.coordinates[0]
+                    );
                     index = grid.features.length;
                 }
             }
@@ -802,8 +839,6 @@ export default {
                 //bounds to get parcel center
                 this.centeredView(this.geojsonArrays);
 
-                this.addParcelPointGrid(this.geojsonArrays);
-
                 if (this.map.getLayer("outlineSelected"))
                     this.map.removeLayer("outlineSelected");
                 if (this.map.getLayer("maineSelected"))
@@ -850,6 +885,15 @@ export default {
                 this.map.moveLayer("outlineSelected", "building-extrusion");
 
                 this.addFloorPlanADU(this.centerBound);
+
+                this.addParcelPointGrid(this.geojsonArrays);
+
+                this.map.moveLayer(
+                    "transform_floor_plan",
+                    "building-extrusion"
+                );
+
+                this.map.moveLayer("maineSelected", "transform_floor_plan");
             }
         },
 
@@ -906,7 +950,7 @@ export default {
             },
         },
 
-        "adu.polygonCoordinate": {
+        "adu.polygonCoordinates": {
             deep: true,
             handler: debounce(function (value, old) {
                 if (this.map.getLayer("sandiego_parcels"))
