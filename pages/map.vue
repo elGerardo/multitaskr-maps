@@ -1,97 +1,75 @@
 <template>
     <div>
-        <form class="py-2">
-            <div class="d-flex justify-content-center align-content-center">
-                <input
-                    style="width: 300px"
-                    name="address"
-                    placeholder="address"
-                    autocomplete="shipping address-line1"
-                    v-model="form.address"
-                />
-                <!--<b-button id="setAdu">Set Adu</b-button>
-                <b-form-spinbutton
-                    v-model="modelConfig.rotate"
-                    id="sb-wrap"
-                    wrap
-                    step="20"
-                    min="0"
-                    max="360"
-                    placeholder="rotate"
-                    style="width: 350px"
-                ></b-form-spinbutton>-->
-                <b-button @click="movingFloorplan = true"
-                    >Move Floorplan</b-button
-                >
-                <span v-show="!allowedADU" class="badge badge-danger"
-                    >Can't set ADU</span
-                >
-                <span v-show="allowedADU" class="badge badge-success"
-                    >Success</span
-                >
-                <b-button @click="adu.rotate += 10">Rotate +</b-button>
-                <b-button @click="adu.rotate -= 10">Rotate -</b-button>
-            </div>
-        </form>
-        <b-button
-            v-b-toggle.sidebar-menu
-            style="
-                position: absolute;
-                top: 10px;
-                left: 10px;
-                z-index: 1;
-                background-color: #4d04af;
-            "
-            id="btn_menu"
-            >Menu</b-button
+        <div
+            id="loading_container"
+            :style="isLoading ? 'displa:inline;' : 'display:none'"
         >
-        <b-sidebar id="sidebar-menu" bg-variant="white" style="z-index: 1">
-            <div class="px-2">
-                <h2>{{ form.address }}</h2>
-                <hr />
-                <b-tabs>
-                    <b-tab title="Details">
-                        <span>LAND USE CATEGORY</span>
-                        <p>Residential</p>
-                        <span>LAND USE</span>
-                        <p>Single Family Dwelling</p>
-                        <b-row>
-                            <b-col>
-                                <span>CITY</span>
-                                <p>Santa Rosa</p>
-                            </b-col>
-                            <b-col>
-                                <span>COUNTY</span>
-                                <p>Sonoma County</p>
-                            </b-col>
-                        </b-row>
-                        <b-row>
-                            <b-col>
-                                <span>STATE</span>
-                                <p>California</p>
-                            </b-col>
-                            <b-col>
-                                <span>ZIP CODE</span>
-                                <p>95401</p>
-                            </b-col>
-                        </b-row>
-                        <b-row>
-                            <b-col>
-                                <span>LOT AREA</span>
-                                <p>5,918 sqft</p>
-                            </b-col>
-                            <b-col>
-                                <span>PROPERTY ID</span>
-                                <p>{{ parcel.hover }}</p>
-                            </b-col>
-                        </b-row>
-                    </b-tab>
-                    <b-tab title="Projects"></b-tab>
-                    <b-tab title="Documents"></b-tab>
-                </b-tabs>
+            <div>
+                <h1>Loading...</h1>
             </div>
-        </b-sidebar>
-        <div id="map" style="width: 100%; height: 100vh"></div>
+        </div>
+        <div class="d-flex" style="height: 100vh">
+            <div style="width: 20%">
+                <form :style="isLoading ? 'displa:none;' : 'display:block;'">
+                    <div class="d-flex flex-column p-3">
+                        <label for="address">Address</label>
+                        <input
+                            id="address"
+                            style="width: 100%"
+                            name="address"
+                            placeholder="address"
+                            autocomplete="shipping address-line1"
+                            class="rounded"
+                            v-model="form.address"
+                        />
+                        <input
+                            type="button"
+                            style="
+                                border-radius: 5px 5px 0 0;
+                                outline: none;
+                                border: 1px solid #4d04af;
+                                background-color: #4d04af;
+                                color: white;
+                            "
+                            class="mt-3"
+                            @click="initMoveAdu()"
+                            value="Set ADU"
+                        />
+                        <span
+                            style="
+                                border-radius: 0 0 5px 5px;
+                                background-color: #f4c5cb;
+                                color: #804953;
+                                text-align: center;
+                            "
+                            v-if="!allowedADU && adu.isADUSet"
+                            >Can't set ADU</span
+                        >
+                        <span
+                            style="
+                                border-radius: 0 0 5px 5px;
+                                background-color: #cfead8;
+                                color: #1c684e;
+                                text-align: center;
+                            "
+                            v-if="allowedADU && adu.isADUSet"
+                            >Available to set ADU</span
+                        >
+                        <label v-if="adu.isADUSet" class="mt-3" for="rotate">Rotate ADU</label>
+                        <b-form-input
+                            v-if="adu.isADUSet"
+                            id="rotate"
+                            v-model="adu.rotate"
+                            type="range"
+                            min="0"
+                            step="10"
+                            max="360"
+                        ></b-form-input>
+                    </div>
+                </form>
+            </div>
+            <div id="map" style="width: 80%"></div>
+        </div>
     </div>
 </template>
 <script>
@@ -110,6 +88,8 @@ export default {
             access_token:
                 "pk.eyJ1IjoiZWxnZXJhcmRvIiwiYSI6ImNsOG90NjFtMzFucG0zeWw1YWRheTV5ZmYifQ.87BCgCSXpjLIHkqGsWUW7g",
             mapStyle: "mapbox://styles/elgerardo/cl9d3ovzq000115ubx8rs0flv",
+            urlSourceParcel: "mapbox://martoast.citysandiego",
+            sourceLayer: "citysandiego",
             config: {
                 zoom: 22,
             },
@@ -144,6 +124,7 @@ export default {
                 rotate: 0,
                 isMoving: false,
                 isAllowed: true,
+                isADUSet: false
             },
             building: {
                 coordinates: null,
@@ -154,19 +135,19 @@ export default {
                 renderer: null,
                 rotate: 0,
             },
-            centerBound: null,
-            urlSourceParcel: "mapbox://martoast.citysandiego",
-            sourceLayer: "citysandiego",
-            tooltipId: null,
-            hoveredStateId: null,
+            isLoading: true,
             modelTransform: null,
             modelAsMercatorCoordinate: null,
-            modelRotate: null,
             modelAltitude: null,
             modelOrigin: null,
-            floorPlanCoordinates: null,
+            centerBound: null,
+            tooltipId: null,
+            hoveredStateId: null,
             allowedADU: true,
             movingFloorplan: false,
+            controlMoveADU: false,
+            //modelRotate: null,
+            //floorPlanCoordinates: null,
             //scene: null,
             //camera: null
         };
@@ -185,10 +166,32 @@ export default {
     },
 
     methods: {
+        initMoveAdu() {
+            this.movingFloorplan = true;
+            if (!this.adu.isADUSet) {
+                this.addFloorPlanADU(this.centerBound);
+                this.addParcelPointGrid(this.geojsonArrays);
+                this.map.addLayer(this.add3dModel(this.centerBound));
+                this.adu.isADUSet = true;
+            }
+        },
         setupMap() {
+            this.controlScroll(true);
+
             this.initMap();
             //Hover to parcels
             this.initHoverParcel();
+        },
+
+        controlScroll(isLoading) {
+            if (isLoading) {
+                document.getElementsByTagName("body")[0].style.overflowY =
+                    "hidden";
+            }
+            if (!isLoading) {
+                document.getElementsByTagName("body")[0].style.overflowY =
+                    "scroll";
+            }
         },
 
         initMap() {
@@ -209,6 +212,7 @@ export default {
                 this.coordinates.lat = parseFloat(e.lngLat.lat);
                 this.coordinates.lng = parseFloat(e.lngLat.lng);
                 this.config.zoom = this.map.getZoom();
+                this.adu.rotate = 0;
                 this.getAddress(); // show info in sidebar
                 this.getPolygons(e.lngLat); // pint parcel selected
             });
@@ -238,6 +242,7 @@ export default {
                             e.lngLat.lat,
                         ];
                         this.addFloorPlanADU(e.lngLat);
+                        this.move3dModel();
                     }
                 });
             });
@@ -296,42 +301,6 @@ export default {
                 this.map.moveLayer("sandiego_parcels", "building-extrusion");
 
                 this.map.on("mousemove", "sandiego_parcels", (e) => {
-                    //let model3d = this.map.getLayer("3d-model");
-                    //console.log(model3d);
-
-                    let polygon1 = this.$turf.polygon(
-                        [
-                            [
-                                [128, -26],
-                                [141, -26],
-                                [141, -21],
-                                [128, -21],
-                                [128, -26],
-                            ],
-                        ],
-                        {
-                            fill: "#F00",
-                            "fill-opacity": 0.1,
-                        }
-                    );
-
-                    var polygon2 = this.$turf.polygon(
-                        [
-                            [
-                                [126, -28],
-                                [140, -28],
-                                [140, -20],
-                                [126, -20],
-                                [126, -28],
-                            ],
-                        ],
-                        {
-                            fill: "#00F",
-                            "fill-opacity": 0.1,
-                        }
-                    );
-
-                    var difference = this.$turf.difference(polygon1, polygon2);
                     //if the result is null
                     if (
                         this.parcel.hover != e.features[0].properties.parcel_id
@@ -382,6 +351,42 @@ export default {
                     this.initMarker();
                 });
             });
+
+            setInterval(() => {
+                this.isLoading = false;
+            }, 1000);
+        },
+
+        addParcelPointGrid(coordinates) {
+            let polygon = this.$turf.polygon([coordinates]);
+            let bbox = this.$turf.bbox(polygon);
+            let cellSide = 3;
+            let options = { units: "meters" };
+            let grid = this.$turf.pointGrid(bbox, cellSide, options);
+
+            for (let index = 0; index < grid.features.length; index++) {
+                let markerLoop = new this.$mapboxgl.Marker({
+                    color: "blue",
+                    draggable: true,
+                })
+                    .setLngLat(grid.features[index].geometry.coordinates)
+                    .addTo(this.map);
+
+                let contentRenderBuildings = this.map.queryRenderedFeatures(
+                    markerLoop._pos,
+                    {
+                        layers: ["building-extrusion"],
+                    }
+                );
+
+                markerLoop.remove();
+
+                if (contentRenderBuildings.length > 0) {
+                    this.building.coordinates =
+                        contentRenderBuildings[0].geometry.coordinates[0];
+                    index = grid.features.length;
+                }
+            }
         },
 
         initSearch() {
@@ -426,23 +431,12 @@ export default {
                 .addTo(this.map);
 
             this.marker.remove();
-
-            /*
-            let contentLayer = this.map.getLayer("sandiego_parcels");
-
-            let contentRender = this.map.queryRenderedFeatures(
-                this.marker._pos,
-                {
-                    layers: ["sandiego_parcels"],
-                }
-            );
-            */
         },
 
         addFloorPlanADU(coordinates) {
             this.adu.centerCoordinates = coordinates;
-
             //ADU size
+            /*
             let polygon = this.$turf.polygon([
                 [
                     [-117.18605148256043, 32.83737944284863],
@@ -450,6 +444,17 @@ export default {
                     [-117.18611548256044, 32.83741344284863],
                     [-117.18611548256044, 32.83737944284863],
                     [-117.18605148256043, 32.83737944284863],
+                ],
+            ]);
+            */
+
+            let polygon = this.$turf.polygon([
+                [
+                    [-117.08251366591874, 32.60741737683557],
+                    [-117.08251366591874, 32.607371064059905],
+                    [-117.08245485192586, 32.607371064059905],
+                    [-117.08245485192586, 32.60741737683557],
+                    [-117.08251366591874, 32.60741737683557],
                 ],
             ]);
 
@@ -464,7 +469,7 @@ export default {
 
             let rotatedPoly = this.$turf.transformRotate(
                 polygon,
-                this.adu.rotate,
+                parseInt(this.adu.rotate),
                 options
             );
 
@@ -500,27 +505,19 @@ export default {
                     type: "fill",
                     source: "polygon_floorplan",
                     paint: {
-                        "fill-color": "blue",
+                        "fill-color": "#b390f9",
                     },
                     layout: {},
                 });
-                /*
-                this.map.moveLayer(
-                    "transform_floor_plan",
-                    "building-extrusion"
-                );
-
-                this.map.moveLayer("transform_floor_plan", "maineselected");
-*/
                 return;
             }
 
             this.map.getSource("polygon_floorplan").setData(translatedPoly);
 
-            let floorplanSource = this.map.getSource("polygon_floorplan");
+            /*let floorplanSource = this.map.getSource("polygon_floorplan");
 
             this.floorPlanCoordinates =
-                floorplanSource._data.geometry.coordinates[0];
+                floorplanSource._data.geometry.coordinates[0];*/
 
             return;
         },
@@ -551,9 +548,12 @@ export default {
                     );
 
                     this.allowedADU = true;
+                    this.map.setPaintProperty(
+                        "transform_floor_plan",
+                        "fill-color",
+                        "#b390f9"
+                    );
                     this.marker.remove();
-                    console.log(this.adu.polygonCoordinates);
-                    console.log(this.building.coordinates);
 
                     if (this.building.coordinates != null) {
                         let aduPolygon = this.$turf.polygon([
@@ -568,12 +568,14 @@ export default {
                             aduPolygon,
                             buildingPolygon
                         );
-                        console.log(intersection);
                         if (intersection) {
-                            console.log("intersection");
-                            console.log(intersection);
                             this.allowedADU = false;
                             finishLoop = true;
+                            this.map.setPaintProperty(
+                                "transform_floor_plan",
+                                "fill-color",
+                                "red"
+                            );
                             return;
                         }
                     }
@@ -581,11 +583,21 @@ export default {
                     if (contentRenderBuilding.length > 0) {
                         this.allowedADU = false;
                         finishLoop = true;
+                        this.map.setPaintProperty(
+                            "transform_floor_plan",
+                            "fill-color",
+                            "red"
+                        );
                         return;
                     }
                     if (contentRender.length === 0) {
                         this.allowedADU = false;
                         finishLoop = true;
+                        this.map.setPaintProperty(
+                            "transform_floor_plan",
+                            "fill-color",
+                            "red"
+                        );
                         return;
                     }
 
@@ -595,51 +607,19 @@ export default {
                     ) {
                         this.allowedADU = false;
                         finishLoop = true;
+                        this.map.setPaintProperty(
+                            "transform_floor_plan",
+                            "fill-color",
+                            "red"
+                        );
                         return;
                     }
                 }
             });
         },
 
-        addParcelPointGrid(coordinates) {
-            let polygon = this.$turf.polygon([coordinates]);
-            let bbox = this.$turf.bbox(polygon);
-            let cellSide = 3;
-            let options = { units: "meters" };
-            let grid = this.$turf.pointGrid(bbox, cellSide, options);
-
-            for (let index = 0; index < grid.features.length; index++) {
-                let markerLoop = new this.$mapboxgl.Marker({
-                    color: "blue",
-                    draggable: true,
-                })
-                    .setLngLat(grid.features[index].geometry.coordinates)
-                    .addTo(this.map);
-
-                let contentRenderBuildings = this.map.queryRenderedFeatures(
-                    markerLoop._pos,
-                    {
-                        layers: ["building-extrusion"],
-                    }
-                );
-
-                markerLoop.remove();
-
-                if (contentRenderBuildings.length > 0) {
-                    console.log("contentRenderBuildings");
-
-                    this.building.coordinates =
-                        contentRenderBuildings[0].geometry.coordinates[0];
-                    console.log(
-                        contentRenderBuildings[0].geometry.coordinates[0]
-                    );
-                    index = grid.features.length;
-                }
-            }
-        },
-
-        add3dModel() {
-            this.modelOrigin = [this.$route.query.lng, this.$route.query.lat];
+        add3dModel(coordinates) {
+            this.modelOrigin = [coordinates.lng, coordinates.lat];
             //let modelOrigin = [-117.02390122960196, 32.58871798986128]
             this.modelAltitude = 0;
             this.modelRotate = [Math.PI / 2, 0, 0];
@@ -690,70 +670,9 @@ export default {
                     this.modelConfig.loader = new FBXLoader();
                     this.modelConfig.loader.load(urlSrc, (fbx) => {
                         fbx.scale.set(0.02, 0.02, 0.02);
-                        fbx.position.set(-37, 0, 20);
+                        fbx.position.set(-37, 0, 17.5);
                         this.modelConfig.scene.add(fbx);
                     });
-
-                    document
-                        .getElementById("setAdu")
-                        .addEventListener("click", () => {
-                            let init = true;
-                            let onBuilding = false;
-
-                            this.map.moveLayer(
-                                "maineSelected",
-                                "building-extrusion"
-                            );
-
-                            this.map.on(
-                                "mouseenter",
-                                "building-extrusion",
-                                (e) => {
-                                    //                                    console.log("inside the bulding...");
-                                    onBuilding = true;
-                                }
-                            );
-
-                            this.map.on(
-                                "mouseleave",
-                                "building-extrusion",
-                                (e) => {
-                                    //                                    console.log("outnside the bulding...");
-                                    onBuilding = false;
-                                }
-                            );
-
-                            this.map.on("mousemove", "maineSelected", (e) => {
-                                if (init && !onBuilding) {
-                                    this.modelAsMercatorCoordinate =
-                                        this.$mapboxgl.MercatorCoordinate.fromLngLat(
-                                            [e.lngLat.lng, e.lngLat.lat],
-                                            this.modelAltitude
-                                        );
-
-                                    this.modelLngLat.lat = e.lngLat.lat;
-                                    this.modelLngLat.lng = e.lngLat.lng;
-
-                                    this.modelTransform = {
-                                        translateX:
-                                            this.modelAsMercatorCoordinate.x,
-                                        translateY:
-                                            this.modelAsMercatorCoordinate.y,
-                                        translateZ:
-                                            this.modelAsMercatorCoordinate.z,
-                                        rotateX: this.modelRotate[0],
-                                        rotateY: this.modelRotate[1],
-                                        rotateZ: this.modelRotate[2],
-
-                                        scale: this.modelAsMercatorCoordinate.meterInMercatorCoordinateUnits(),
-                                    };
-                                }
-                            });
-
-                            this.map.on("click", "maineSelected", (e) => {
-                                init = false;
-                            });
-                        });
 
                     // use the Mapbox GL JS map canvas for three.js
                     this.modelConfig.renderer = new THREE.WebGLRenderer({
@@ -810,6 +729,52 @@ export default {
             return customLayer;
         },
 
+        move3dModel() {
+            this.modelAsMercatorCoordinate =
+                this.$mapboxgl.MercatorCoordinate.fromLngLat(
+                    [
+                        this.adu.centerCoordinates.lng,
+                        this.adu.centerCoordinates.lat,
+                    ],
+                    this.modelAltitude
+                );
+
+            this.modelLngLat.lat = this.adu.centerCoordinates.lat;
+            this.modelLngLat.lng = this.adu.centerCoordinates.lng;
+            this.modelTransform = {
+                translateX: this.modelAsMercatorCoordinate.x,
+                translateY: this.modelAsMercatorCoordinate.y,
+                translateZ: this.modelAsMercatorCoordinate.z,
+                rotateX: this.modelRotate[0],
+                rotateY: ((-this.adu.rotate * 1.55) / 360) * 4,
+                rotateZ: this.modelRotate[2],
+
+                scale: this.modelAsMercatorCoordinate.meterInMercatorCoordinateUnits(),
+            };
+        },
+
+        centeredView(coordinates) {
+            var bounds = new this.$mapboxgl.LngLatBounds(
+                coordinates[0],
+                coordinates[0]
+            );
+
+            for (var coord of coordinates) {
+                bounds.extend(coord);
+            }
+
+            this.centerBound = bounds.getCenter();
+
+            this.map.easeTo({
+                center: bounds.getCenter(),
+                speed: 2,
+                duration: 2500,
+                curve: 2,
+            });
+
+            this.map.fitBounds(bounds, {});
+        },
+
         //fetch's
         async getAddress() {
             let params = {
@@ -825,6 +790,7 @@ export default {
             await this.$store.dispatch("polygons/find", lngLat);
 
             if (this.parcel.selected != this.polygon.parcel_id) {
+                this.isLoading = true;
                 this.parcel.selected = this.polygon.parcel_id;
 
                 let itemsArrays = JSON.parse(this.polygon.geojson).coordinates;
@@ -883,40 +849,24 @@ export default {
 
                 this.map.moveLayer("maineSelected", "building-extrusion");
                 this.map.moveLayer("outlineSelected", "building-extrusion");
+                if (this.adu.isADUSet) {
+                    this.addFloorPlanADU(this.centerBound);
 
-                this.addFloorPlanADU(this.centerBound);
+                    this.addParcelPointGrid(this.geojsonArrays);
 
-                this.addParcelPointGrid(this.geojsonArrays);
+                    if (!this.map.getLayer("3d-model")) {
+                        this.map.addLayer(this.add3dModel(this.centerBound));
+                    } else {
+                        this.move3dModel();
+                    }
+                    this.map.moveLayer(
+                        "transform_floor_plan",
+                        "building-extrusion"
+                    );
 
-                this.map.moveLayer(
-                    "transform_floor_plan",
-                    "building-extrusion"
-                );
-
-                this.map.moveLayer("maineSelected", "transform_floor_plan");
+                    this.map.moveLayer("maineSelected", "transform_floor_plan");
+                }
             }
-        },
-
-        centeredView(coordinates) {
-            var bounds = new this.$mapboxgl.LngLatBounds(
-                coordinates[0],
-                coordinates[0]
-            );
-
-            for (var coord of coordinates) {
-                bounds.extend(coord);
-            }
-
-            this.centerBound = bounds.getCenter();
-
-            /*this.map.easeTo({
-                center: center.getCenter(),
-                speed: 2,
-                duration: 2500,
-                curve: 2,
-            });*/
-
-            //this.map.fitBounds(bounds, {});
         },
     },
 
@@ -927,26 +877,6 @@ export default {
                 this.$router.push({
                     query: this.coordinates,
                 });
-            },
-        },
-        "modelConfig.rotate": {
-            handler(value, old) {
-                this.modelAsMercatorCoordinate =
-                    this.$mapboxgl.MercatorCoordinate.fromLngLat(
-                        [this.modelLngLat.lng, this.modelLngLat.lat],
-                        this.modelAltitude
-                    );
-
-                this.modelTransform = {
-                    translateX: this.modelAsMercatorCoordinate.x,
-                    translateY: this.modelAsMercatorCoordinate.y,
-                    translateZ: this.modelAsMercatorCoordinate.z,
-                    rotateX: this.modelRotate[0],
-                    rotateY: (value / 360) * 4,
-                    rotateZ: this.modelRotate[2],
-
-                    scale: this.modelAsMercatorCoordinate.meterInMercatorCoordinateUnits(),
-                };
             },
         },
 
@@ -960,7 +890,9 @@ export default {
 
         "adu.rotate": {
             handler(value, old) {
+                console.log("moving");
                 this.addFloorPlanADU(this.adu.centerCoordinates);
+                this.move3dModel();
             },
         },
 
@@ -969,11 +901,42 @@ export default {
             //console.log("debouncing...");
             //console.log(this.parcelId);
         }, 600),
+
+        isLoading: debounce(function (value, old) {
+            if (value) {
+                this.controlScroll(true);
+            } else {
+                this.controlScroll(false);
+            }
+        }, 1000),
     },
 };
 </script>
 <style>
 .nav-link {
     color: #85088e;
+}
+
+#loading_container {
+    color: white;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(-45deg, #470882, #5d37be, #5d57d4, #5082fe);
+    background-size: 400% 400%;
+    animation: gradient 5s ease infinite;
+}
+
+@keyframes gradient {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
 }
 </style>
