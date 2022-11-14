@@ -8,75 +8,198 @@
                 <h1>Loading...</h1>
             </div>
         </div>
-        <div class="d-flex" style="height: 100vh">
+        <b-navbar class="d-flex justify-content-center align-items-center">
+            <form
+                class="d-flex w-25"
+                style="
+                    color: none;
+                    background-color: none;
+                    border: none;
+                    outline: none;
+                "
+            >
+                <div
+                    class="d-flex w-100"
+                    style="border: 1px solid #e1d9dc; border-radius: 15px"
+                >
+                    <b-icon
+                        icon="search"
+                        class="mx-2"
+                        style="color: #747474; margin-top: 7.5px"
+                    />
+                    <input
+                        id="address"
+                        name="address"
+                        placeholder="Enter a location"
+                        autocomplete="shipping address-line1"
+                        style="
+                            width: 100%;
+                            outline: none;
+                            border: none;
+                            padding: 5px;
+                            color: #747474;
+                        "
+                        v-model="form.address"
+                    />
+                </div>
+            </form>
+        </b-navbar>
+        <div class="d-flex" style="height: 90vh; position: relative">
             <div style="width: 20%">
                 <form :style="isLoading ? 'displa:none;' : 'display:block;'">
-                    <div class="d-flex flex-column p-3">
-                        <label for="address">Address</label>
-                        <input
-                            id="address"
-                            style="width: 100%"
-                            name="address"
-                            placeholder="address"
-                            autocomplete="shipping address-line1"
-                            class="rounded"
-                            v-model="form.address"
-                        />
-                        <input
-                            type="button"
-                            style="
-                                border-radius: 5px 5px 0 0;
-                                outline: none;
-                                border: 1px solid #4d04af;
-                                background-color: #4d04af;
-                                color: white;
-                            "
-                            class="mt-3"
-                            @click="initMoveAdu()"
-                            value="Set ADU"
-                        />
-                        <span
-                            style="
-                                border-radius: 0 0 5px 5px;
-                                background-color: #f4c5cb;
-                                color: #804953;
-                                text-align: center;
-                            "
-                            v-if="!allowedADU && adu.isADUSet"
-                            >Can't set ADU</span
+                    <div
+                        class="d-flex flex-column p-3"
+                        style="border-top: 1px solid #e1d9dc"
+                    >
+                        <div style="border-bottom: 1px solid #e1d9dc">
+                            <label for="address" style="color: #747474"
+                                >Address</label
+                            >
+                            <p class="font-weight-bold">{{ address }}</p>
+                        </div>
+                        <div
+                            class="w-100 d-flex justify-content-center align-items-center flex-column pb-3"
+                            style="border-bottom: 1px solid #e1d9dc"
                         >
-                        <span
-                            style="
-                                border-radius: 0 0 5px 5px;
-                                background-color: #cfead8;
-                                color: #1c684e;
-                                text-align: center;
-                            "
-                            v-if="allowedADU && adu.isADUSet"
-                            >Available to set ADU</span
-                        >
-                        <label v-if="adu.isADUSet" class="mt-3" for="rotate">Rotate ADU</label>
-                        <b-form-input
-                            v-if="adu.isADUSet"
-                            id="rotate"
-                            v-model="adu.rotate"
-                            type="range"
-                            min="0"
-                            step="10"
-                            max="360"
-                        ></b-form-input>
+                            <input
+                                type="button"
+                                style="
+                                    border-radius: 5px 5px 0 0;
+                                    outline: none;
+                                    border: 1px solid #4d04af;
+                                    background-color: #4d04af;
+                                    color: white;
+                                    width: 75%;
+                                "
+                                class="mt-3"
+                                @click="initFloorPlanADU()"
+                                value="Set ADU"
+                            />
+                            <span
+                                style="
+                                    border-radius: 0 0 5px 5px;
+                                    background-color: #f4c5cb;
+                                    color: #804953;
+                                    text-align: center;
+                                    width: 75%;
+                                "
+                                v-if="!allowedADU && adu.isADUSet"
+                                >Can't set ADU</span
+                            >
+                            <span
+                                style="
+                                    border-radius: 0 0 5px 5px;
+                                    background-color: #cfead8;
+                                    color: #1c684e;
+                                    text-align: center;
+                                    width: 75%;
+                                "
+                                v-if="allowedADU && adu.isADUSet"
+                                >Available to set ADU</span
+                            >
+                            <div>
+                                <label
+                                    v-if="adu.isADUSet"
+                                    class="mt-3"
+                                    style="color: #747474"
+                                    for="rotate"
+                                    >Rotate ADU</label
+                                >
+                                <b-form-input
+                                    v-if="adu.isADUSet"
+                                    id="rotate"
+                                    v-model="adu.rotate"
+                                    type="range"
+                                    min="0"
+                                    step="10"
+                                    max="360"
+                                ></b-form-input>
+                            </div>
+                        </div>
                     </div>
                 </form>
+            </div>
+            <div
+                class="d-flex justify-content-center align-items-center flex-column position-absolute"
+                style="right: 15px; top: 15px; z-index: 5"
+            >
+                <div class="bg-white shadow-lg rounded-circle px-2 py-1 my-3">
+                    <button
+                        @click="goToCurrentLocation"
+                        class="bg-white current-location"
+                        style="
+                            outline: none;
+                            border: none;
+                            color: white;
+                            margin: 0;
+                            padding: 0;
+                            color: #747474;
+                        "
+                    >
+                        <b-icon icon="cursor"></b-icon>
+                    </button>
+                </div>
+                <div
+                    class="bg-white d-flex flex-column shadow-lg"
+                    style="border-radius: 15px"
+                >
+                    <button
+                        @click="
+                            () => {
+                                config.zoom += 2;
+                                map.easeTo({
+                                    zoom: config.zoom,
+                                });
+                            }
+                        "
+                        class="bg-white p-2 zoom-in"
+                        style="
+                            outline: none;
+                            border: none;
+                            border-radius: 15px 15px 0 0;
+                            font-size: 24px;
+                            font-weight: 400;
+                            color: #747474;
+                        "
+                    >
+                        +
+                    </button>
+                    <button
+                        @click="
+                            () => {
+                                config.zoom -= 2;
+                                map.easeTo({
+                                    zoom: config.zoom,
+                                });
+                            }
+                        "
+                        class="bg-white p-2 zoom-out"
+                        style="
+                            outline: none;
+                            border: none;
+                            border-radius: 0 0 15px 15px;
+                            font-size: 24px;
+                            font-weight: 400;
+                            color: #747474;
+                        "
+                    >
+                        -
+                    </button>
+                </div>
             </div>
             <div id="map" style="width: 80%"></div>
         </div>
     </div>
 </template>
 <script>
+import Vue from "vue";
 import { mapGetters } from "vuex";
 import { debounce } from "lodash";
 import * as THREE from "three";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader";
+import { BootstrapVue, BootstrapVueIcons } from "bootstrap-vue";
+Vue.use(BootstrapVue);
+Vue.use(BootstrapVueIcons);
 
 export default {
     async fetch({ store, route }) {
@@ -91,7 +214,7 @@ export default {
             urlSourceParcel: "mapbox://martoast.citysandiego",
             sourceLayer: "citysandiego",
             config: {
-                zoom: 22,
+                zoom: 19.5,
             },
             map: {},
             marker: {},
@@ -124,7 +247,7 @@ export default {
                 rotate: 0,
                 isMoving: false,
                 isAllowed: true,
-                isADUSet: false
+                isADUSet: false,
             },
             building: {
                 coordinates: null,
@@ -135,6 +258,7 @@ export default {
                 renderer: null,
                 rotate: 0,
             },
+            address: null,
             isLoading: true,
             modelTransform: null,
             modelAsMercatorCoordinate: null,
@@ -146,10 +270,6 @@ export default {
             allowedADU: true,
             movingFloorplan: false,
             controlMoveADU: false,
-            //modelRotate: null,
-            //floorPlanCoordinates: null,
-            //scene: null,
-            //camera: null
         };
     },
 
@@ -166,68 +286,44 @@ export default {
     },
 
     methods: {
-        initMoveAdu() {
-            this.movingFloorplan = true;
-            if (!this.adu.isADUSet) {
-                this.addFloorPlanADU(this.centerBound);
-                this.addParcelPointGrid(this.geojsonArrays);
-                this.map.addLayer(this.add3dModel(this.centerBound));
-                this.adu.isADUSet = true;
-            }
-        },
         setupMap() {
             this.controlScroll(true);
-
             this.initMap();
-            //Hover to parcels
             this.initHoverParcel();
         },
 
-        controlScroll(isLoading) {
-            if (isLoading) {
-                document.getElementsByTagName("body")[0].style.overflowY =
-                    "hidden";
-            }
-            if (!isLoading) {
-                document.getElementsByTagName("body")[0].style.overflowY =
-                    "scroll";
-            }
-        },
-
         initMap() {
-            //new map
             this.$mapboxgl.accessToken = this.access_token;
             this.map = new this.$mapboxgl.Map({
                 container: "map",
                 style: this.mapStyle,
                 zoom: this.config.zoom,
-                pitch: 45, //inclination
-                bearing: -17.6, // rotation
+                pitch: 45,
+                bearing: -17.6,
                 antialias: true,
                 center: [this.coordinates.lng, this.coordinates.lat],
             });
 
-            //fetch to API when make a click
             this.map.on("click", (e) => {
                 this.coordinates.lat = parseFloat(e.lngLat.lat);
                 this.coordinates.lng = parseFloat(e.lngLat.lng);
                 this.config.zoom = this.map.getZoom();
                 this.adu.rotate = 0;
-                this.getAddress(); // show info in sidebar
-                this.getPolygons(e.lngLat); // pint parcel selected
+                this.getAddress();
+                this.getPolygons(e.lngLat);
             });
 
-            //zoom event
             this.map.on("zoom", (e) => {
                 this.config.zoom = this.map.getZoom();
             });
 
             this.map.on("style.load", () => {
                 this.initSources();
-
                 this.initSearch();
+
                 //first time the page is loaded
                 this.getPolygons(this.coordinates);
+                this.getAddress();
 
                 this.map.on("click", "maineSelected", (e) => {
                     if (this.allowedADU) {
@@ -301,7 +397,6 @@ export default {
                 this.map.moveLayer("sandiego_parcels", "building-extrusion");
 
                 this.map.on("mousemove", "sandiego_parcels", (e) => {
-                    //if the result is null
                     if (
                         this.parcel.hover != e.features[0].properties.parcel_id
                     ) {
@@ -331,8 +426,6 @@ export default {
                     }
                 });
 
-                // When the mouse leaves the state-fill layer, update the feature state of the
-                // previously hovered feature.
                 this.map.on("mouseleave", "sandiego_parcels", () => {
                     if (hoveredStateId !== null) {
                         this.map.setFeatureState(
@@ -352,7 +445,8 @@ export default {
                 });
             });
 
-            setInterval(() => {
+            setTimeout(() => {
+                console.log("looping");
                 this.isLoading = false;
             }, 1000);
         },
@@ -396,8 +490,6 @@ export default {
                 confirmOnBrowserAutofill: true,
             });
 
-            //watch this function
-
             this.search.addEventListener("retrieve", (event) => {
                 this.coordinates.lat =
                     event.detail.features[0].geometry.coordinates[1];
@@ -412,17 +504,11 @@ export default {
 
                 //fetch to API
                 this.getPolygons(this.coordinates);
-
-                //this.$refs.sideBarMenu.show();
-                document.getElementById("btn_menu").click;
-                //this.$refs.sideBarMenu.toggle();
+                this.getAddress();
             });
         },
 
         initMarker() {
-            //creating marker
-            //it used to get x and y positions and then
-            //take the parcel information
             this.marker = new this.$mapboxgl.Marker({
                 color: "blue",
                 draggable: true,
@@ -433,21 +519,18 @@ export default {
             this.marker.remove();
         },
 
+        initFloorPlanADU() {
+            this.movingFloorplan = true;
+            if (!this.adu.isADUSet) {
+                this.addFloorPlanADU(this.centerBound);
+                this.addParcelPointGrid(this.geojsonArrays);
+                this.map.addLayer(this.add3dModel(this.centerBound));
+                this.adu.isADUSet = true;
+            }
+        },
+
         addFloorPlanADU(coordinates) {
             this.adu.centerCoordinates = coordinates;
-            //ADU size
-            /*
-            let polygon = this.$turf.polygon([
-                [
-                    [-117.18605148256043, 32.83737944284863],
-                    [-117.18605148256043, 32.83741344284863],
-                    [-117.18611548256044, 32.83741344284863],
-                    [-117.18611548256044, 32.83737944284863],
-                    [-117.18605148256043, 32.83737944284863],
-                ],
-            ]);
-            */
-
             let polygon = this.$turf.polygon([
                 [
                     [-117.08251366591874, 32.60741737683557],
@@ -493,7 +576,6 @@ export default {
             this.adu.polygonCoordinates =
                 translatedPoly.geometry.coordinates[0];
 
-            //first time is added
             if (!this.map.getSource("polygon_floorplan")) {
                 this.map.addSource("polygon_floorplan", {
                     type: "geojson",
@@ -620,7 +702,6 @@ export default {
 
         add3dModel(coordinates) {
             this.modelOrigin = [coordinates.lng, coordinates.lat];
-            //let modelOrigin = [-117.02390122960196, 32.58871798986128]
             this.modelAltitude = 0;
             this.modelRotate = [Math.PI / 2, 0, 0];
 
@@ -630,7 +711,6 @@ export default {
                     this.modelAltitude
                 );
 
-            // transformation parameters to position, rotate and scale the 3D model onto the map
             this.modelTransform = {
                 translateX: this.modelAsMercatorCoordinate.x,
                 translateY: this.modelAsMercatorCoordinate.y,
@@ -638,9 +718,6 @@ export default {
                 rotateX: this.modelRotate[0],
                 rotateY: this.modelRotate[1],
                 rotateZ: this.modelRotate[2],
-                /* Since the 3D model is in real world meters, a scale transform needs to be
-                 * applied since the CustomLayerInterface expects units in MercatorCoordinates.
-                 */
                 scale: this.modelAsMercatorCoordinate.meterInMercatorCoordinateUnits(),
             };
 
@@ -652,7 +729,6 @@ export default {
                     this.modelConfig.camera = new THREE.Camera();
                     this.modelConfig.scene = new THREE.Scene();
 
-                    // create two three.js lights to illuminate the model
                     const directionalLight = new THREE.DirectionalLight(
                         0xffffff
                     );
@@ -674,7 +750,6 @@ export default {
                         this.modelConfig.scene.add(fbx);
                     });
 
-                    // use the Mapbox GL JS map canvas for three.js
                     this.modelConfig.renderer = new THREE.WebGLRenderer({
                         canvas: map.getCanvas(),
                         context: gl,
@@ -770,6 +845,7 @@ export default {
                 speed: 2,
                 duration: 2500,
                 curve: 2,
+                zoom: 19.5,
             });
 
             this.map.fitBounds(bounds, {});
@@ -783,7 +859,7 @@ export default {
                 access_token: this.access_token,
             };
             await this.$store.dispatch("places/get", params);
-            this.form.address = this.places[0].place_name;
+            this.address = this.places[0].place_name;
         },
 
         async getPolygons(lngLat) {
@@ -796,13 +872,11 @@ export default {
                 let itemsArrays = JSON.parse(this.polygon.geojson).coordinates;
                 this.geojsonArrays = [];
 
-                //fix response polygons to the polygonSource array
                 itemsArrays[0].forEach((item) => {
                     let itemArray = [item[1], item[0]];
                     this.geojsonArrays.push(itemArray);
                 });
 
-                //bounds to get parcel center
                 this.centeredView(this.geojsonArrays);
 
                 if (this.map.getLayer("outlineSelected"))
@@ -818,24 +892,21 @@ export default {
                         type: "Feature",
                         geometry: {
                             type: "Polygon",
-                            // These coordinates outline Maine.
                             coordinates: [this.geojsonArrays],
                         },
                     },
                 });
 
-                // Add a new layer to visualize the polygon.
                 this.map.addLayer({
                     id: "maineSelected",
                     type: "fill",
-                    source: "polygonSourceSelected", // reference the data source
+                    source: "polygonSourceSelected",
                     layout: {},
                     paint: {
-                        "fill-color": "rgb(133,8,142)", // blue color fill
+                        "fill-color": "rgb(133,8,142)",
                         "fill-opacity": 1,
                     },
                 });
-                // Add a black outline around the polygon.
                 this.map.addLayer({
                     id: "outlineSelected",
                     type: "line",
@@ -866,7 +937,32 @@ export default {
 
                     this.map.moveLayer("maineSelected", "transform_floor_plan");
                 }
+
+                this.isLoading = false;
             }
+        },
+
+        controlScroll(isLoading) {
+            console.log(isLoading);
+            if (isLoading) {
+                document.getElementsByTagName("body")[0].style.overflowY =
+                    "hidden";
+            }
+            if (!isLoading) {
+                document.getElementsByTagName("body")[0].style.overflowY =
+                    "scroll";
+            }
+        },
+
+        goToCurrentLocation() {
+            this.map.easeTo({
+                center: this.centerBound,
+                speed: 2,
+                duration: 2000,
+                curve: 2,
+                pitch: 45,
+                zoom: 19.5,
+            });
         },
     },
 
@@ -896,19 +992,26 @@ export default {
             },
         },
 
-        "parcel.hover": debounce(async function (value, old) {
+        /*"parcel.hover": debounce(async function (value, old) {
             //fetch
             //console.log("debouncing...");
             //console.log(this.parcelId);
-        }, 600),
+        }, 600),*/
 
         isLoading: debounce(function (value, old) {
+            console.log(value);
             if (value) {
                 this.controlScroll(true);
             } else {
                 this.controlScroll(false);
             }
         }, 1000),
+
+        /*"config.zoom": {
+            handler: function (value, old) {
+                this.map.setZoom(value);
+            },
+        },*/
     },
 };
 </script>
