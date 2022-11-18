@@ -151,9 +151,6 @@
                         @click="
                             () => {
                                 config.zoom += 2;
-                                map.easeTo({
-                                    zoom: config.zoom,
-                                });
                             }
                         "
                         class="bg-white p-2 zoom-in"
@@ -172,9 +169,6 @@
                         @click="
                             () => {
                                 config.zoom -= 2;
-                                map.easeTo({
-                                    zoom: config.zoom,
-                                });
                             }
                         "
                         class="bg-white p-2 zoom-out"
@@ -1165,11 +1159,13 @@ export default {
             },
         },
 
-        /*"config.zoom": {
+        "config.zoom": {
             handler: function (value, old) {
-                this.map.setZoom(value);
+                this.map.easeTo({
+                    zoom: value,
+                });
             },
-        },*/
+        },
     },
 };
 </script>
