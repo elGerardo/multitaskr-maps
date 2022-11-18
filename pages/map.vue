@@ -121,7 +121,7 @@
             </div>
             <div
                 class="d-flex justify-content-center align-items-center flex-column position-absolute"
-                style="right: 15px; top: 15px; z-index: 5"
+                style="right: 15px; bottom: 15px; z-index: 5"
             >
                 <div class="bg-white shadow-lg rounded-circle px-2 py-1 my-3">
                     <button
@@ -141,7 +141,11 @@
                 </div>
                 <div
                     class="bg-white d-flex flex-column shadow-lg"
-                    style="border-radius: 15px"
+                    :style="
+                        isMovingMap
+                            ? 'border-radius: 15px; margin-bottom:200px; transition: all 0.3s ease-in-out; z-index:2;'
+                            : 'border-radius: 15px; transition: all 0.3s ease-in-out; z-index:2;'
+                    "
                 >
                     <button
                         @click="
@@ -185,6 +189,59 @@
                     >
                         -
                     </button>
+                </div>
+                <div>
+                    <b-form-input
+                        v-if="isMovingMap"
+                        v-model="mapPitch"
+                        id="pitch"
+                        type="range"
+                        min="0"
+                        step="1"
+                        max="100"
+                        class="position-absolute"
+                        style="
+                            width: 180px;
+                            bottom: 140px;
+                            left: -75px;
+                            transform: rotate(90deg);
+                        "
+                    />
+                    <div class="d-flex">
+                        <b-form-input
+                            v-if="isMovingMap"
+                            v-model="mapBearing"
+                            id="bearing"
+                            type="range"
+                            min="0"
+                            step="1"
+                            max="400"
+                            class="position-absolute"
+                            style="width: 180px; bottom: 20px; right: 45px"
+                        />
+                        <div
+                            class="bg-white shadow-lg rounded-circle px-2 py-1 my-3"
+                        >
+                            <button
+                                @click="
+                                    isMovingMap
+                                        ? (isMovingMap = false)
+                                        : (isMovingMap = true)
+                                "
+                                class="bg-white current-location"
+                                style="
+                                    outline: none;
+                                    border: none;
+                                    color: white;
+                                    margin: 0;
+                                    padding: 0;
+                                    color: #747474;
+                                "
+                            >
+                                <b-icon icon="arrows-move"></b-icon>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div id="map" style="width: 80%"></div>
@@ -258,6 +315,9 @@ export default {
                 renderer: null,
                 rotate: 0,
             },
+            mapPitch: 45,
+            mapBearing: -17.6,
+            isMovingMap: false,
             address: null,
             isLoading: true,
             modelTransform: null,
@@ -298,8 +358,8 @@ export default {
                 container: "map",
                 style: this.mapStyle,
                 zoom: this.config.zoom,
-                pitch: 45,
-                bearing: -17.6,
+                pitch: this.mapPitch,
+                bearing: this.mapBearing,
                 antialias: true,
                 center: [this.coordinates.lng, this.coordinates.lat],
             });
@@ -326,6 +386,9 @@ export default {
                 this.getAddress();
 
                 this.map.on("click", "maineSelected", (e) => {
+                    console.log(this.map.getLayer("maineSelected"));
+                    console.log(this.map.getSource("polygonSourceSelected"));
+
                     if (this.allowedADU) {
                         this.movingFloorplan = false;
                     }
@@ -376,6 +439,37 @@ export default {
             let hoveredStateId = null;
 
             this.map.on("load", (e) => {
+                //GET BUILDING
+                this.map.addLayer({
+                    id: "add-3d-buildings",
+                    source: "composite",
+                    "source-layer": "building",
+                    filter: ["==", "ID", ""],
+                    type: "fill-extrusion",
+                    paint: {
+                        "fill-extrusion-color": "rgba(133,8,142,0.1)",
+                        "fill-extrusion-height": [
+                            "interpolate",
+                            ["linear"],
+                            ["zoom"],
+                            15,
+                            0,
+                            15.05,
+                            ["get", "height"],
+                        ],
+                        "fill-extrusion-base": [
+                            "interpolate",
+                            ["linear"],
+                            ["zoom"],
+                            15,
+                            0,
+                            15.05,
+                            ["get", "min_height"],
+                        ],
+                        "fill-extrusion-opacity": 0.6,
+                    },
+                });
+
                 this.map.addLayer({
                     id: "sandiego_parcels",
                     generateId: true,
@@ -446,41 +540,8 @@ export default {
             });
 
             setTimeout(() => {
-                console.log("looping");
                 this.isLoading = false;
             }, 1000);
-        },
-
-        addParcelPointGrid(coordinates) {
-            let polygon = this.$turf.polygon([coordinates]);
-            let bbox = this.$turf.bbox(polygon);
-            let cellSide = 3;
-            let options = { units: "meters" };
-            let grid = this.$turf.pointGrid(bbox, cellSide, options);
-
-            for (let index = 0; index < grid.features.length; index++) {
-                let markerLoop = new this.$mapboxgl.Marker({
-                    color: "blue",
-                    draggable: true,
-                })
-                    .setLngLat(grid.features[index].geometry.coordinates)
-                    .addTo(this.map);
-
-                let contentRenderBuildings = this.map.queryRenderedFeatures(
-                    markerLoop._pos,
-                    {
-                        layers: ["building-extrusion"],
-                    }
-                );
-
-                markerLoop.remove();
-
-                if (contentRenderBuildings.length > 0) {
-                    this.building.coordinates =
-                        contentRenderBuildings[0].geometry.coordinates[0];
-                    index = grid.features.length;
-                }
-            }
         },
 
         initSearch() {
@@ -541,6 +602,18 @@ export default {
                 ],
             ]);
 
+            var pointsHull = this.$turf.featureCollection([
+                this.$turf.point([-117.08251366591874, 32.60741737683557]),
+                this.$turf.point([-117.08251366591874, 32.607371064059905]),
+                this.$turf.point([-117.08245485192586, 32.607371064059905]),
+                this.$turf.point([-117.08245485192586, 32.60741737683557]),
+                this.$turf.point([-117.08251366591874, 32.60741737683557]),
+            ]);
+
+            var optionsHull = { units: "meters", maxEdge: 0 };
+
+            var hullData = this.$turf.concave(pointsHull, optionsHull);
+
             let center = this.$turf.centroid(polygon);
 
             let options = {
@@ -591,10 +664,16 @@ export default {
                     },
                     layout: {},
                 });
+                this.map.moveLayer(
+                    "transform_floor_plan",
+                    "building-extrusion"
+                );
                 return;
             }
 
             this.map.getSource("polygon_floorplan").setData(translatedPoly);
+
+            //            this.map.moveLayer("transform_floor_plan", "building-extrusion");
 
             /*let floorplanSource = this.map.getSource("polygon_floorplan");
 
@@ -606,6 +685,8 @@ export default {
 
         validateFloorPlanAdu(coordinates) {
             let finishLoop = false;
+            //            console.log(this.map.queryRenderedFeatures({layers:["transform_floor_plan"]}));
+            console.log(this.map.getSource("polygon_floorplan"));
             coordinates.forEach((item) => {
                 if (!finishLoop) {
                     this.marker = new this.$mapboxgl.Marker({
@@ -851,6 +932,73 @@ export default {
             this.map.fitBounds(bounds, {});
         },
 
+        contentPointGrid(coordinates) {
+            let polygon = this.$turf.polygon([coordinates]);
+            let bbox = this.$turf.bbox(polygon);
+            let area = this.$turf.area(polygon);
+            let cellSide = 5;
+            let options = { units: "meters" };
+            let grid = this.$turf.pointGrid(bbox, cellSide, options);
+            let currentPitch = this.map.getPitch();
+            this.map.setPitch(0);
+            for (let index = 0; index < grid.features.length; index++) {
+                let markerLoop = new this.$mapboxgl.Marker({
+                    color: "blue",
+                    draggable: true,
+                })
+                    .setLngLat(grid.features[index].geometry.coordinates)
+                    .addTo(this.map);
+
+                let contentRenderBuildings = this.map.queryRenderedFeatures(
+                    markerLoop._pos,
+                    {
+                        layers: ["building-extrusion"],
+                    }
+                );
+
+                markerLoop.remove();
+
+                if (contentRenderBuildings.length > 0) {
+                    /*                    this.map.setPaintProperty(
+                        "add-3d-buildings",
+                        "fill-extrusion-opacity",
+                        {
+                            property: "ID",
+                            type: "categorical",
+                            stops: [[contentRenderBuildings[0].id, 1]],
+                            default: 1,
+                        }
+                    );
+*/
+                    /*
+                    let building = this.map.setFeatureState({
+                        source: "composite",
+                        id: contentRenderBuildings[0].id,
+                        sourceLayer: "building",
+                    });
+                    console.log(building);
+                    */
+
+                    /*this.map.setPaintProperty(
+                        "building-extrusion",
+                        "building",
+                        ["match", ["get", "id"], "fill-extrusion-opacity", 1]
+                    );*/
+
+                    this.building.coordinates =
+                        contentRenderBuildings[0].geometry.coordinates[0];
+                    index = grid.features.length;
+                }
+            }
+            this.map.setPitch(currentPitch);
+        },
+
+        async addParcelPointGrid(coordinates) {
+            this.isLoading = true;
+            await this.contentPointGrid(coordinates);
+            this.isLoading = false;
+        },
+
         //fetch's
         async getAddress() {
             let params = {
@@ -921,10 +1069,6 @@ export default {
                 this.map.moveLayer("maineSelected", "building-extrusion");
                 this.map.moveLayer("outlineSelected", "building-extrusion");
                 if (this.adu.isADUSet) {
-                    this.addFloorPlanADU(this.centerBound);
-
-                    this.addParcelPointGrid(this.geojsonArrays);
-
                     if (!this.map.getLayer("3d-model")) {
                         this.map.addLayer(this.add3dModel(this.centerBound));
                     } else {
@@ -936,14 +1080,18 @@ export default {
                     );
 
                     this.map.moveLayer("maineSelected", "transform_floor_plan");
+                    this.addFloorPlanADU(this.centerBound);
+                    this.addParcelPointGrid(this.geojsonArrays);
+
+                    return;
                 }
 
                 this.isLoading = false;
+                return;
             }
         },
 
         controlScroll(isLoading) {
-            console.log(isLoading);
             if (isLoading) {
                 document.getElementsByTagName("body")[0].style.overflowY =
                     "hidden";
@@ -986,7 +1134,6 @@ export default {
 
         "adu.rotate": {
             handler(value, old) {
-                console.log("moving");
                 this.addFloorPlanADU(this.adu.centerCoordinates);
                 this.move3dModel();
             },
@@ -999,13 +1146,24 @@ export default {
         }, 600),*/
 
         isLoading: debounce(function (value, old) {
-            console.log(value);
             if (value) {
                 this.controlScroll(true);
             } else {
                 this.controlScroll(false);
             }
         }, 1000),
+
+        mapBearing: {
+            handler: function (value, old) {
+                this.map.setBearing(value);
+            },
+        },
+
+        mapPitch: {
+            handler: function (value, old) {
+                this.map.setPitch(value);
+            },
+        },
 
         /*"config.zoom": {
             handler: function (value, old) {
