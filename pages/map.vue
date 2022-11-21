@@ -60,6 +60,10 @@
                         <div
                             class="w-100 d-flex justify-content-center align-items-center flex-column pb-3"
                             style="border-bottom: 1px solid #e1d9dc"
+                            v-if="
+                                mapStyle !=
+                                'mapbox://styles/elgerardo/clar77iqc001n14o12815mnyf'
+                            "
                         >
                             <input
                                 type="button"
@@ -75,6 +79,21 @@
                                 @click="initFloorPlanADU()"
                                 value="Set ADU"
                             />
+                            <!--<input
+                                type="button"
+                                style="
+                                    border-radius: 5px 5px 0 0;
+                                    outline: none;
+                                    border: 1px solid #4d04af;
+                                    background-color: #4d04af;
+                                    color: white;
+                                    width: 75%;
+                                "
+                                class="mt-3"
+                                @click="removeADU()"
+                                value="Cancel"
+                                v-if="!adu.isADUSet"
+                            />-->
                             <span
                                 style="
                                     border-radius: 0 0 5px 5px;
@@ -123,6 +142,22 @@
                 class="d-flex justify-content-center align-items-center flex-column position-absolute"
                 style="right: 15px; bottom: 15px; z-index: 5"
             >
+                <div class="bg-white shadow-lg rounded-circle px-2 py-1">
+                    <button
+                        @click="changeMapStyle()"
+                        class="bg-white"
+                        style="
+                            outline: none;
+                            border: none;
+                            color: white;
+                            margin: 0;
+                            padding: 0;
+                            color: #747474;
+                        "
+                    >
+                        <b-icon icon="globe"></b-icon>
+                    </button>
+                </div>
                 <div class="bg-white shadow-lg rounded-circle px-2 py-1 my-3">
                     <button
                         @click="goToCurrentLocation"
@@ -148,11 +183,7 @@
                     "
                 >
                     <button
-                        @click="
-                            () => {
-                                config.zoom += 2;
-                            }
-                        "
+                        @click="config.zoom += 1"
                         class="bg-white p-2 zoom-in"
                         style="
                             outline: none;
@@ -166,11 +197,7 @@
                         +
                     </button>
                     <button
-                        @click="
-                            () => {
-                                config.zoom -= 2;
-                            }
-                        "
+                        @click="config.zoom -= 1"
                         class="bg-white p-2 zoom-out"
                         style="
                             outline: none;
@@ -358,17 +385,17 @@ export default {
                 center: [this.coordinates.lng, this.coordinates.lat],
             });
 
+            this.map.dragRotate.disable();
+            this.map.touchZoomRotate.disable();
+            this.map.scrollZoom.disable();
+
             this.map.on("click", (e) => {
                 this.coordinates.lat = parseFloat(e.lngLat.lat);
                 this.coordinates.lng = parseFloat(e.lngLat.lng);
-                this.config.zoom = this.map.getZoom();
-                this.adu.rotate = 0;
+                //this.config.zoom = this.map.getZoom();
+                //this.adu.rotate = 0;
                 this.getAddress();
                 this.getPolygons(e.lngLat);
-            });
-
-            this.map.on("zoom", (e) => {
-                this.config.zoom = this.map.getZoom();
             });
 
             this.map.on("style.load", () => {
@@ -380,11 +407,9 @@ export default {
                 this.getAddress();
 
                 this.map.on("click", "maineSelected", (e) => {
-                    console.log(this.map.getLayer("maineSelected"));
-                    console.log(this.map.getSource("polygonSourceSelected"));
-
                     if (this.allowedADU) {
                         this.movingFloorplan = false;
+                        this.adu.isADUSet = true;
                     }
                 });
 
@@ -596,6 +621,7 @@ export default {
                 ],
             ]);
 
+            /*
             var pointsHull = this.$turf.featureCollection([
                 this.$turf.point([-117.08251366591874, 32.60741737683557]),
                 this.$turf.point([-117.08251366591874, 32.607371064059905]),
@@ -607,6 +633,7 @@ export default {
             var optionsHull = { units: "meters", maxEdge: 0 };
 
             var hullData = this.$turf.concave(pointsHull, optionsHull);
+            */
 
             let center = this.$turf.centroid(polygon);
 
@@ -679,8 +706,8 @@ export default {
 
         validateFloorPlanAdu(coordinates) {
             let finishLoop = false;
-            //            console.log(this.map.queryRenderedFeatures({layers:["transform_floor_plan"]}));
-            console.log(this.map.getSource("polygon_floorplan"));
+            //console.log(this.map.queryRenderedFeatures({layers:["transform_floor_plan"]}));
+            //console.log(this.map.getSource("polygon_floorplan"));
             coordinates.forEach((item) => {
                 if (!finishLoop) {
                     this.marker = new this.$mapboxgl.Marker({
@@ -903,6 +930,33 @@ export default {
             };
         },
 
+        removeADU() {
+            this.movingFloorplan = false;
+            this.adu.isADUSet = false;
+            if (this.map.getLayer("transform_floor_plan"))
+                this.map.removeLayer("transform_floor_plan");
+            if (this.map.getSource("polygon_floorplan"))
+                this.map.removeSource("polygon_floorplan");
+        },
+
+        changeMapStyle() {
+            this.removeADU();
+            if (
+                this.mapStyle ==
+                "mapbox://styles/elgerardo/clar77iqc001n14o12815mnyf"
+            ) {
+                this.map.remove();
+                this.mapStyle =
+                    "mapbox://styles/elgerardo/cl9d3ovzq000115ubx8rs0flv";
+            } else {
+                this.map.remove();
+                this.mapStyle =
+                    "mapbox://styles/elgerardo/clar77iqc001n14o12815mnyf";
+            }
+
+            this.setupMap();
+        },
+
         centeredView(coordinates) {
             var bounds = new this.$mapboxgl.LngLatBounds(
                 coordinates[0],
@@ -929,7 +983,7 @@ export default {
         contentPointGrid(coordinates) {
             let polygon = this.$turf.polygon([coordinates]);
             let bbox = this.$turf.bbox(polygon);
-            let area = this.$turf.area(polygon);
+            //let area = this.$turf.area(polygon);
             let cellSide = 5;
             let options = { units: "meters" };
             let grid = this.$turf.pointGrid(bbox, cellSide, options);
@@ -985,6 +1039,35 @@ export default {
                 }
             }
             this.map.setPitch(currentPitch);
+        },
+
+        controlScroll(isLoading) {
+            if (isLoading) {
+                document.getElementsByTagName("body")[0].style.overflowY =
+                    "hidden";
+            }
+            if (!isLoading) {
+                document.getElementsByTagName("body")[0].style.overflowY =
+                    "scroll";
+            }
+        },
+
+        goToCurrentLocation() {
+            this.map.dragPan.disable();
+            this.map.easeTo({
+                center: this.centerBound,
+                speed: 2,
+                duration: 1000,
+                curve: 2,
+                pitch: 45,
+                zoom: 20,
+            });
+            
+            setTimeout(() => {
+                this.config.zoom = 20;
+                this.map.dragPan.enable();
+            }, 1000);
+
         },
 
         async addParcelPointGrid(coordinates) {
@@ -1085,27 +1168,6 @@ export default {
             }
         },
 
-        controlScroll(isLoading) {
-            if (isLoading) {
-                document.getElementsByTagName("body")[0].style.overflowY =
-                    "hidden";
-            }
-            if (!isLoading) {
-                document.getElementsByTagName("body")[0].style.overflowY =
-                    "scroll";
-            }
-        },
-
-        goToCurrentLocation() {
-            this.map.easeTo({
-                center: this.centerBound,
-                speed: 2,
-                duration: 2000,
-                curve: 2,
-                pitch: 45,
-                zoom: 19.5,
-            });
-        },
     },
 
     watch: {
@@ -1132,12 +1194,6 @@ export default {
                 this.move3dModel();
             },
         },
-
-        /*"parcel.hover": debounce(async function (value, old) {
-            //fetch
-            //console.log("debouncing...");
-            //console.log(this.parcelId);
-        }, 600),*/
 
         isLoading: debounce(function (value, old) {
             if (value) {
