@@ -8,10 +8,27 @@
                 <h1>Loading...</h1>
             </div>
         </div>
-        <b-navbar class="d-flex justify-content-center align-items-center">
+        <div
+            style="
+                height: 90vh;
+                width: 20%;
+                top: 15px;
+                left: 15px;
+                position: absolute;
+                z-index: 2;
+            "
+            class="bg-white rounded shadow-lg border-0 p-3"
+        >
+            <b-img
+                src="../assets/images/mk_logo.png"
+                fluid
+                alt="Responsive image"
+                class="my-3"
+            ></b-img>
             <form
-                class="d-flex w-25"
+                class="d-flex w-100"
                 style="
+                    z-index: 3;
                     color: none;
                     background-color: none;
                     border: none;
@@ -43,9 +60,7 @@
                     />
                 </div>
             </form>
-        </b-navbar>
-        <div class="d-flex" style="height: 90vh; position: relative">
-            <div style="width: 20%">
+            <div>
                 <form :style="isLoading ? 'displa:none;' : 'display:block;'">
                     <div
                         class="d-flex flex-column p-3"
@@ -134,11 +149,17 @@
                     </div>
                 </form>
             </div>
+        </div>
+
+        <div id="map" style="width: 100vw; height: 100vh" class="position-relative">
             <div
                 class="d-flex justify-content-center align-items-center flex-column position-absolute"
-                style="right: 15px; bottom: 15px; z-index: 5"
+                style="right: 35px; bottom: 25px; z-index: 5"
             >
-                <div class="bg-white shadow-lg rounded-circle px-2 py-1">
+                <div
+                    class="bg-white shadow-lg rounded-circle px-2 py-1"
+                    style="z-index: 2"
+                >
                     <button
                         @click="changeMapStyle()"
                         class="bg-white"
@@ -154,7 +175,10 @@
                         <b-icon icon="globe"></b-icon>
                     </button>
                 </div>
-                <div class="bg-white shadow-lg rounded-circle px-2 py-1 my-3">
+                <div
+                    class="bg-white shadow-lg rounded-circle px-2 py-1 my-3"
+                    style="z-index: 2"
+                >
                     <button
                         @click="goToCurrentLocation"
                         class="bg-white current-location"
@@ -218,6 +242,7 @@
                         max="100"
                         class="position-absolute"
                         style="
+                            z-index: 1;
                             width: 180px;
                             bottom: 140px;
                             left: -75px;
@@ -234,7 +259,12 @@
                             step="1"
                             max="400"
                             class="position-absolute"
-                            style="width: 180px; bottom: 20px; right: 45px"
+                            style="
+                                z-index: 1;
+                                width: 180px;
+                                bottom: 20px;
+                                right: 45px;
+                            "
                         />
                         <div
                             class="bg-white shadow-lg rounded-circle px-2 py-1 my-3"
@@ -247,6 +277,7 @@
                                 "
                                 class="bg-white current-location"
                                 style="
+                                    z-index: 2;
                                     outline: none;
                                     border: none;
                                     color: white;
@@ -261,7 +292,6 @@
                     </div>
                 </div>
             </div>
-            <div id="map" style="width: 80%"></div>
         </div>
     </div>
 </template>
@@ -334,6 +364,7 @@ export default {
                 renderer: null,
                 rotate: 0,
             },
+            polygonExtrusions: [],
             isSatelliteView: false,
             isMovingMap: false,
             address: null,
@@ -993,7 +1024,7 @@ export default {
 
             this.map.easeTo({
                 center: bounds.getCenter(),
-                speed: 2,
+                speed: 1,
                 duration: 2500,
                 curve: 2,
                 zoom: 19.5,
@@ -1009,6 +1040,14 @@ export default {
             let options = { units: "meters" };
             let grid = this.$turf.pointGrid(bbox, cellSide, options);
             let currentPitch = this.map.getPitch();
+
+            this.polygonExtrusions.forEach((item) => {
+                if (this.map.getLayer(`extrudedSelected-${item}`))
+                    this.map.removeLayer(`extrudedSelected-${item}`);
+                if (this.map.getSource(`polygonExtrudedSelected-${item}`))
+                    this.map.removeSource(`polygonExtrudedSelected-${item}`);
+            });
+
             this.map.setPitch(0);
             for (let index = 0; index < grid.features.length; index++) {
                 let markerLoop = new this.$mapboxgl.Marker({
@@ -1026,37 +1065,21 @@ export default {
                 );
 
                 markerLoop.remove();
-
                 if (contentRenderBuildings.length > 0) {
-                    /*                    this.map.setPaintProperty(
-                        "add-3d-buildings",
-                        "fill-extrusion-opacity",
-                        {
-                            property: "ID",
-                            type: "categorical",
-                            stops: [[contentRenderBuildings[0].id, 1]],
-                            default: 1,
-                        }
-                    );
-*/
-                    /*
-                    let building = this.map.setFeatureState({
-                        source: "composite",
-                        id: contentRenderBuildings[0].id,
-                        sourceLayer: "building",
-                    });
-                    console.log(building);
-                    */
-
-                    /*this.map.setPaintProperty(
-                        "building-extrusion",
-                        "building",
-                        ["match", ["get", "id"], "fill-extrusion-opacity", 1]
-                    );*/
-
                     this.building.coordinates =
                         contentRenderBuildings[0].geometry.coordinates[0];
                     index = grid.features.length;
+
+                    let base_height =
+                        contentRenderBuildings[0].properties.min_height;
+                    let height = contentRenderBuildings[0].properties.height;
+
+                    /*this.extrudePolygon(
+                        this.building.coordinates,
+                        index,
+                        base_height,
+                        height
+                    );*/
                 }
             }
             this.map.setPitch(currentPitch);
@@ -1127,6 +1150,7 @@ export default {
                 this.centeredView(this.geojsonArrays);
 
                 this.addSelectedLayers();
+                this.addParcelPointGrid(this.geojsonArrays);
 
                 if (this.adu.isADUSet) {
                     console.log(this.adu.isADUSet);
@@ -1142,13 +1166,46 @@ export default {
 
                     this.map.moveLayer("maineSelected", "transform_floor_plan");
                     this.addFloorPlanADU(this.centerBound);
-                    this.addParcelPointGrid(this.geojsonArrays);
                     return;
                 }
 
                 this.isLoading = false;
                 return;
             }
+        },
+
+        extrudePolygon(coordinates, index, base_height, height) {
+            this.map.addSource(`polygonExtrudedSelected-${index}`, {
+                type: "geojson",
+                data: {
+                    type: "Feature",
+                    geometry: {
+                        type: "Polygon",
+                        coordinates: [coordinates],
+                    },
+                },
+            });
+
+            this.map.addLayer({
+                id: `extrudedSelected-${index}`,
+                type: "fill-extrusion",
+                source: `polygonExtrudedSelected-${index}`,
+                paint: {
+                    "fill-extrusion-color": "rgb(255, 255, 255)",
+                    "fill-extrusion-height": height,
+                    "fill-extrusion-base": base_height,
+                    "fill-extrusion-opacity": 1,
+                },
+            });
+            /*
+            this.map.moveLayer("maineSelected", `extrudedSelected-${index}`);
+            this.map.moveLayer(
+                "building-extrusion",
+                `extrudedSelected-${index}`
+            );
+            this.map.moveLayer("mapbox-satellite", `extrudedSelected-${index}`);
+            */
+            this.polygonExtrusions.push(index);
         },
 
         addSelectedLayers() {
@@ -1269,12 +1326,16 @@ export default {
 };
 </script>
 <style>
+body {
+    overflow-x: hidden;
+}
+
 .nav-link {
     color: #85088e;
 }
 
 #loading_container {
-    color: white;
+    color: rgb(255, 255, 255);
     height: 100vh;
     display: flex;
     justify-content: center;
