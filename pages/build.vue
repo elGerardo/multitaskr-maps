@@ -16,7 +16,12 @@
             <div :class="['d-flex justify-content-center align-items-center']">
                 <div :class="['w-75']"><p>ADU INFO</p></div>
                 <div :class="['w-25']">
-                    <button :class="[$style.primary_button]" @click="addFloorPlanADU(coordinates)">Set ADU</button>
+                    <button
+                        :class="[$style.primary_button]"
+                        @click="addFloorPlanADU(coordinates)"
+                    >
+                        Set ADU
+                    </button>
                 </div>
             </div>
 
@@ -134,7 +139,7 @@ export default {
                     [-117.08251366591874, 32.60741737683557],
                 ],
             ]);
-            
+
             let center = this.$turf.centroid(polygon);
 
             let options = {
@@ -200,17 +205,18 @@ export default {
             return;
         },
 
-
         addParcelDifference(building, parcel) {
-            console.log(
+            let parcelGeometry = this.$turf.polygon([
                 parcel.geometry.coordinates[0],
-                building.geometry.coordinates[0]
+            ]);
+            let buildingGeometry = this.$turf.polygon([
+                building.geometry.coordinates[0],
+            ]);
+
+            let difference = this.$turf.difference(
+                parcelGeometry,
+                buildingGeometry
             );
-
-            let parcelGeometry = this.$turf.polygon([parcel.geometry.coordinates[0]]);
-            let buildingGeometry = this.$turf.polygon([building.geometry.coordinates[0]]);
-
-            let difference = this.$turf.difference(parcelGeometry, buildingGeometry);
 
             this.map.addSource("parcel_difference", {
                 type: "geojson",
@@ -226,6 +232,65 @@ export default {
                     "fill-opacity": 0.5,
                 },
             });
+
+            let bbox = this.$turf.bbox(difference);
+            let bboxLayer = this.$turf.bboxPolygon(bbox);
+
+            this.map.addSource("bboxLayer", {
+                type: "geojson",
+                data: bboxLayer,
+            });
+
+            this.map.addLayer({
+                id: "bboxLayer_layer",
+                type: "line",
+                source: "bboxLayer",
+                paint: {
+                    "line-color": "red",
+                    "line-width": 2,
+                },
+            });
+
+            let cellWidth = 1;
+            let cellHeight = 0.05;
+
+            let bufferedBbox = this.$turf.bbox(
+                this.$turf.buffer(difference, cellWidth, { units: "meters" })
+            );
+            var cellSide = 2;
+            var options = { units: "meters", mask: difference };
+
+            var squareGrid = this.$turf.squareGrid(
+                bufferedBbox,
+                cellSide,
+                options
+            );
+
+            this.map.addSource("parcel_difference_grid", {
+                type: "geojson",
+                data: squareGrid,
+            });
+
+            this.map.addLayer({
+                id: "parcel_difference_fill_grid",
+                type: "line",
+                source: "parcel_difference_grid",
+                paint: {
+                    "line-color": "#04af15",
+                    "line-width": 2,
+                },
+            });
+
+            this.$turf.featureEach(
+                squareGrid,
+                (currentFeature, featureIndex) => {
+                    let intersected = this.$turf.intersect(
+                        squareGrid.features[0],
+                        currentFeature
+                    );
+                    console.log(intersected);
+                }
+            );
         },
 
         contentPointGrid(coordinates) {
@@ -273,7 +338,7 @@ export default {
 
             if (type == "parcel") {
                 if (!this.map.getSource("parcel_limits")) {
-                    let scaledPoly = this.$turf.transformScale(polygon, 0.9, {
+                    let scaledPoly = this.$turf.transformScale(polygon, 1, {
                         units: "meters",
                     });
 
@@ -298,7 +363,7 @@ export default {
             }
 
             if (!this.map.getSource("building_limits")) {
-                let scaledPoly = this.$turf.transformScale(polygon, 1.5, {
+                let scaledPoly = this.$turf.transformScale(polygon, 1, {
                     units: "meters",
                 });
 
