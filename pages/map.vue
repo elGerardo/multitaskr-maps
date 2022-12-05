@@ -76,8 +76,7 @@
                             class="w-100 d-flex justify-content-center align-items-center flex-column pb-3"
                             style="border-bottom: 1px solid #e1d9dc"
                         >
-                            <input
-                                type="button"
+                            <NuxtLink :to="`build?lat=${coordinates.lat}&lng=${coordinates.lng}`"
                                 style="
                                     border-radius: 5px 5px 0 0;
                                     outline: none;
@@ -85,11 +84,11 @@
                                     background-color: #4d04af;
                                     color: white;
                                     width: 75%;
+                                    text-align: center;
                                 "
                                 class="mt-3"
-                                @click="initFloorPlanADU()"
-                                value="Set ADU"
-                            />
+                                value="Multitaskr Build"
+                            >Build</NuxtLink>
                             <!--<input
                                 type="button"
                                 style="
@@ -671,21 +670,7 @@ export default {
                     [-117.08251366591874, 32.60741737683557],
                 ],
             ]);
-
-            /*
-            var pointsHull = this.$turf.featureCollection([
-                this.$turf.point([-117.08251366591874, 32.60741737683557]),
-                this.$turf.point([-117.08251366591874, 32.607371064059905]),
-                this.$turf.point([-117.08245485192586, 32.607371064059905]),
-                this.$turf.point([-117.08245485192586, 32.60741737683557]),
-                this.$turf.point([-117.08251366591874, 32.60741737683557]),
-            ]);
-
-            var optionsHull = { units: "meters", maxEdge: 0 };
-
-            var hullData = this.$turf.concave(pointsHull, optionsHull);
-            */
-
+            
             let center = this.$turf.centroid(polygon);
 
             let options = {
@@ -1021,16 +1006,7 @@ export default {
             }
 
             this.centerBound = bounds.getCenter();
-
-            this.map.easeTo({
-                center: bounds.getCenter(),
-                speed: 1,
-                duration: 2500,
-                curve: 2,
-                zoom: 19.5,
-            });
-
-            this.map.fitBounds(bounds, {});
+            this.goToCurrentLocation();
         },
 
         contentPointGrid(coordinates) {
@@ -1131,6 +1107,7 @@ export default {
         },
 
         async getPolygons(lngLat) {
+            console.log(lngLat);
             await this.$store.dispatch("polygons/find", lngLat);
             if (
                 this.parcel.selected != this.polygon.parcel_id &&
@@ -1147,10 +1124,11 @@ export default {
                     this.geojsonArrays.push(itemArray);
                 });
 
-                this.centeredView(this.geojsonArrays);
-
+                
                 this.addSelectedLayers();
                 this.addParcelPointGrid(this.geojsonArrays);
+                
+                this.centeredView(this.geojsonArrays);
 
                 if (this.adu.isADUSet) {
                     console.log(this.adu.isADUSet);
@@ -1172,6 +1150,7 @@ export default {
                 this.isLoading = false;
                 return;
             }
+            
         },
 
         extrudePolygon(coordinates, index, base_height, height) {
