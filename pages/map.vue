@@ -76,6 +76,10 @@
                             class="w-100 d-flex justify-content-center align-items-center flex-column pb-3"
                             style="border-bottom: 1px solid #e1d9dc"
                         >
+                        
+                        <p  @click="initFloorPlanADU">Set ADU</p>
+                   
+
                             <NuxtLink :to="`build?lat=${coordinates.lat}&lng=${coordinates.lng}`"
                                 style="
                                     border-radius: 5px 5px 0 0;
@@ -299,6 +303,8 @@ import Vue from "vue";
 import { mapGetters } from "vuex";
 import { debounce } from "lodash";
 import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader";
 import { BootstrapVue, BootstrapVueIcons } from "bootstrap-vue";
 Vue.use(BootstrapVue);
@@ -414,7 +420,6 @@ export default {
 
             this.map.dragRotate.disable();
             this.map.touchZoomRotate.disable();
-            this.map.scrollZoom.disable();
 
             this.map.on("click", (e) => {
                 this.coordinates.lat = parseFloat(e.lngLat.lat);
@@ -879,9 +884,9 @@ export default {
                     directionalLight2.position.set(0, 70, 100).normalize();
                     this.modelConfig.scene.add(directionalLight2);
 
-                    let urlSrc = "./models/adutwo.fbx";
+                    let urlSrc = "./models/model625.gltf";
 
-                    this.modelConfig.loader = new FBXLoader();
+                    this.modelConfig.loader = new GLTFLoader();
                     this.modelConfig.loader.load(urlSrc, (fbx) => {
                         fbx.scale.set(0.02, 0.02, 0.02);
                         fbx.position.set(-37, 0, 17.5);
@@ -1107,7 +1112,6 @@ export default {
         },
 
         async getPolygons(lngLat) {
-            console.log(lngLat);
             await this.$store.dispatch("polygons/find", lngLat);
             if (
                 this.parcel.selected != this.polygon.parcel_id &&
