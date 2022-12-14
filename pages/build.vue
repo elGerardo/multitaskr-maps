@@ -1,76 +1,195 @@
 <template>
     <div class="d-flex">
         <div :class="[$style.sideBar, 'w-25 p-3']">
-            <b-card
-                img-src=""
-                img-width="200"
-                img-alt="Card image"
-                img-left
-                :class="['mb-3']"
-            >
-                <b-card-text>
-                    Some quick example text to build on the card and make up the
-                    bulk of the card's content.
-                </b-card-text>
-            </b-card>
-            <div :class="['d-flex justify-content-center align-items-center']">
-                <div :class="['w-75']"><p>ADU INFO</p></div>
-                <div :class="['w-25']">
-                    <button
-                        :class="[$style.primary_button]"
-                        @click="
-                            () => {
-                                adu.canDelete = !adu.canDelete;
-                                if (!adu.canDelete) {
-                                    deletePolygon(
-                                        {
-                                            source: 'polygon_floorplan',
-                                            layer: 'transform_floor_plan',
-                                        },
-                                        'floorPlan'
+            <!--
+            <div>
+                <b-card
+                    img-src=""
+                    img-width="200"
+                    img-alt="Card image"
+                    img-left
+                    :class="['mb-3']"
+                >
+                    <b-card-text>
+                        Some quick example text to build on the card and make up
+                        the bulk of the card's content.
+                    </b-card-text>
+                </b-card>
+                <div
+                    :class="[
+                        'd-flex justify-content-center align-items-center',
+                    ]"
+                >
+                    <div :class="['w-75']"><p>ADU INFO</p></div>
+                    <div :class="['w-25']">
+                        <button
+                            :class="[$style.primary_button]"
+                            @click="
+                                () => {
+                                    adu.canDelete = !adu.canDelete;
+                                    if (!adu.canDelete) {
+                                        deletePolygon(
+                                            {
+                                                source: 'polygon_floorplan',
+                                                layer: 'transform_floor_plan',
+                                            },
+                                            'floorPlan'
+                                        );
+                                        return;
+                                    }
+                                    addPolygon(
+                                        floorPlan,
+                                        'floorPlan',
+                                        centerBound,
+                                        null
                                     );
                                     return;
                                 }
-                                addPolygon(
-                                    floorPlan,
-                                    'floorPlan',
-                                    centerBound,
-                                    null
-                                );
-                                return;
-                            }
-                        "
+                            "
+                        >
+                            {{ adu.canDelete ? "Cancel" : "Set ADU" }}
+                        </button>
+                    </div>
+                </div>
+                <div v-if="adu.canDelete">
+                    <button
+                        :class="[
+                            adu.isMoving
+                                ? $style.primary_button_focus
+                                : $style.primary_button,
+                        ]"
+                        @click="adu.isMoving = true"
                     >
-                        {{ adu.canDelete ? "Cancel" : "Set ADU" }}
+                        Move ADU
                     </button>
+                    <label
+                        class="mt-3 d-block"
+                        style="color: #747474"
+                        for="rotate"
+                        >Rotate ADU</label
+                    >
+                    <b-form-input
+                        id="rotate"
+                        v-model="adu.rotate"
+                        type="range"
+                        min="0"
+                        step="10"
+                        max="360"
+                    ></b-form-input>
                 </div>
             </div>
-            <div v-if="adu.canDelete">
-                <button
-                    :class="[
-                        adu.isMoving
-                            ? $style.primary_button_focus
-                            : $style.primary_button,
-                    ]"
-                    @click="adu.isMoving = true"
-                >
-                    Move ADU
-                </button>
-                <label class="mt-3 d-block" style="color: #747474" for="rotate"
-                    >Rotate ADU</label
-                >
-                <b-form-input
-                    id="rotate"
-                    v-model="adu.rotate"
-                    type="range"
-                    min="0"
-                    step="10"
-                    max="360"
-                ></b-form-input>
-            </div>
-
             <hr />
+            -->
+            <div
+                v-if="isLoading"
+                :class="[
+                    `d-flex justify-content-center flex-direction-column mb-3`,
+                ]"
+            >
+                <b-spinner label="Loading..."></b-spinner>
+            </div>
+            <p v-if="isLoading" :class="[`text-center`]">
+                Loading ADU's Catalog...
+            </p>
+            <div v-if="!isLoading" v-for="item of catalog" :key="item.id">
+                <b-card
+                    img-src=""
+                    img-width="200"
+                    img-alt="Card image"
+                    img-left
+                    :class="['mb-3']"
+                >
+                    <b-card-text>
+                        {{ item.description }}
+                    </b-card-text>
+                </b-card>
+                <div
+                    :class="[
+                        'd-flex justify-content-center align-items-center',
+                    ]"
+                >
+                    <div :class="['w-25']">
+                        <button
+                            :class="[$style.primary_button]"
+                            @click="
+                                () => {
+                                    if (adu.currentId != item.id) {
+                                        adu.canDelete = true;
+                                    } else {
+                                        adu.canDelete = false;
+                                    }
+
+                                    if (!adu.canDelete) {
+                                        deletePolygon(
+                                            {
+                                                source: 'polygon_floorplan',
+                                                layer: 'transform_floor_plan',
+                                            },
+                                            'floorPlan'
+                                        );
+                                        if (adu.currentId != item.id) {
+                                            adu.canDelete = !adu.canDelete;
+                                            addPolygon(
+                                                floorPlan,
+                                                'floorPlan',
+                                                centerBound,
+                                                null,
+                                                item.id
+                                            );
+                                            return;
+                                        }
+                                        adu.currentId = null;
+                                        return;
+                                    }
+                                    addPolygon(
+                                        floorPlan,
+                                        'floorPlan',
+                                        centerBound,
+                                        null,
+                                        item.id
+                                    );
+                                    return;
+                                }
+                            "
+                        >
+                            {{
+                                adu.canDelete && adu.currentId == item.id
+                                    ? "Cancel"
+                                    : "Set ADU"
+                            }}
+                        </button>
+                    </div>
+                </div>
+                <div v-if="adu.canDelete && adu.currentId == item.id">
+                    <button
+                        :class="[
+                            adu.isMoving
+                                ? $style.primary_button_focus
+                                : $style.primary_button,
+                        ]"
+                        @click="adu.isMoving = true"
+                    >
+                        Move ADU
+                    </button>
+                    <label
+                        class="mt-3 d-block"
+                        style="color: #747474"
+                        for="rotate"
+                        >Rotate ADU</label
+                    >
+                    <b-form-input
+                        id="rotate"
+                        v-model="adu.rotate"
+                        type="range"
+                        min="0"
+                        step="10"
+                        max="360"
+                    ></b-form-input>
+                </div>
+                <hr />
+            </div>
         </div>
+
         <div
             id="map"
             style="height: 100vh"
@@ -104,6 +223,7 @@ export default {
                 parcel_id: 0,
             },
             adu: {
+                currentId: null,
                 centerCoordinates: null,
                 polygonCoordinates: null,
                 rotate: 0,
@@ -112,6 +232,7 @@ export default {
                 isADUSet: false,
                 canDelete: false,
             },
+            isLoading: true,
             geojsonArrays: [],
             centerBound: null,
             selectedParcelgGeometry: null,
@@ -127,6 +248,7 @@ export default {
         ...mapGetters({
             polygon: "polygons/polygon",
             floorPlan: "floorPlan/floorPlan",
+            catalog: "floorPlan/catalog",
         }),
     },
 
@@ -164,12 +286,21 @@ export default {
                 }
             });
 
-            this.map.on("load", () => {
-                this.getParcel();
+            this.map.on("load", async () => {
+                await this.getParcel();
+                this.map.once("idle", () => {
+                    this.isLoading = false;
+                });
             });
         },
 
-        addPolygon(geometry, type, coordinates, counter = 0) {
+        async addPolygon(
+            geometry,
+            type,
+            coordinates,
+            counter = 0,
+            floorPlanId = null
+        ) {
             if (type == "parcel") {
                 let parcelPolygon = this.$turf.polygon([geometry]);
 
@@ -212,6 +343,12 @@ export default {
                 return;
             }
             if (type == "floorPlan") {
+                if (floorPlanId !== null) {
+                    this.adu.currentId = floorPlanId;
+                    await this.$store.dispatch("floorPlan/find", floorPlanId);
+                    geometry = this.floorPlan;
+                }
+
                 let floorPlanGeometry = JSON.parse(geometry);
 
                 let polygon = this.$turf.polygon(
@@ -533,10 +670,10 @@ export default {
             },
         },
         "adu.rotate": {
-            handler: function(value, old){
+            handler: function (value, old) {
                 this.addPolygon(this.floorPlan, "floorPlan", this.coordinates);
-            }
-        }
+            },
+        },
     },
 };
 </script>
