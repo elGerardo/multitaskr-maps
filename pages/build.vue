@@ -494,33 +494,19 @@ export default {
             }
         },
 
-        addCanvas() {
-            this.map.addSource("canvas_source", {
-                type: "canvas",
-                canvas: "map_canvas",
-                coordinates: [
-                    [-117.0758987563481, 32.609948998628525],
-                    [-117.07580825866327, 32.609948998628525],
-                    [-117.07580825866327, 32.609991848390564],
-                    [-117.0758987563481, 32.609991848390564],
-                ],
-            });
-
-            this.map.addLayer({
-                id: "canvas-layer",
-                type: "raster",
-                source: "canvas_source",
-            });
-        },
-
         initRotate(e) {
-            var p2 = {
+            /*var p2 = {
                 x: window.innerWidth,
                 y: window.innerHeight,
-            };
+            };*/
             this.map.on("mousemove", (e) => {
-                //console.log(e);
+                console.log(e);
                 //ctx.clearRect(0, 0, canvas.width, canvas.height);
+                var p2 = {
+                    x: window.innerWidth,
+                    y: window.innerHeight,
+                };
+
                 var p1 = {
                     x: e.originalEvent.pageX,
                     y: e.originalEvent.pageY,
