@@ -239,6 +239,7 @@ export default {
                 isADUSet: false,
                 canDelete: false,
             },
+            isCanvasRotating: false,
             currentX: 0,
             currentY: 0,
             isLoading: true,
@@ -430,6 +431,10 @@ export default {
                         layout: {},
                     });
 
+                    this.map.on("mousedown", "transform_floor_plan", (e) => {
+                        this.initRotate(e);
+                    });
+                    /*
                     //able feature edition
                     this.map.on("click", (e) => {
                         var features = this.map.queryRenderedFeatures(e.point, {
@@ -479,7 +484,7 @@ export default {
                             );
                         }
                     });
-
+*/
                     return;
                 }
 
@@ -489,23 +494,41 @@ export default {
             }
         },
 
-        initRotate() {
-            let canvas = document.getElementById("map_canvas");
-            canvas.style.display = "block";
-            let ctx = canvas.getContext("2d");
+        addCanvas() {
+            this.map.addSource("canvas_source", {
+                type: "canvas",
+                canvas: "map_canvas",
+                coordinates: [
+                    [-117.0758987563481, 32.609948998628525],
+                    [-117.07580825866327, 32.609948998628525],
+                    [-117.07580825866327, 32.609991848390564],
+                    [-117.0758987563481, 32.609991848390564],
+                ],
+            });
+
+            this.map.addLayer({
+                id: "canvas-layer",
+                type: "raster",
+                source: "canvas_source",
+            });
+        },
+
+        initRotate(e) {
             var p2 = {
                 x: window.innerWidth,
                 y: window.innerHeight,
             };
-            canvas.addEventListener("mousemove", (e) => {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            this.map.on("mousemove", (e) => {
+                //console.log(e);
+                //ctx.clearRect(0, 0, canvas.width, canvas.height);
                 var p1 = {
-                    x: e.pageX,
-                    y: e.pageY,
+                    x: e.originalEvent.pageX,
+                    y: e.originalEvent.pageY,
                 };
                 var angleDeg =
-                    (Math.atan2((p2.y / 2) - p1.y, (p2.x / 2) - p1.x) * 180) / Math.PI;
-                var a = p1.x - p2.x;
+                    (Math.atan2(p2.y / 2 - p1.y, p2.x / 2 - p1.x) * 180) /
+                    Math.PI;
+                /*var a = p1.x - p2.x;
                 var b = p1.y - p2.y;
                 var c = Math.sqrt(a * a + b * b);
                 ctx.beginPath();
@@ -513,24 +536,87 @@ export default {
                 ctx.arc(
                     canvas.width / 2,
                     canvas.height / 2,
-                    50,
+                    25,
                     1 * Math.PI,
                     1 * Math.PI + (2 / 360) * Math.round(angleDeg) * Math.PI,
                     false
-                );
-                ctx.closePath();
-                ctx.stroke();
-                let fullangle = angleDeg < 0 ? (Math.round(angleDeg) * -1) + ((180 - Math.round(angleDeg) * -1) * 2) : angleDeg;
-                ctx.fillText(                   //180           +   180-170 = 10 + 180
-                    Math.round(fullangle) + "°",
+                );*/
+                //ctx.closePath();
+                //ctx.stroke();
+                let fullangle =
+                    angleDeg < 0
+                        ? Math.round(angleDeg) * -1 +
+                          (180 - Math.round(angleDeg) * -1) * 2
+                        : angleDeg;
+                //    console.log(fullangle);
+                this.adu.rotate = fullangle;
+                /*ctx.fillText(
+                    //180           +   180-170 = 10 + 180
+                    Math.round(this.adu.rotate) + "°",
                     canvas.width - 70,
                     canvas.height - 20
-                );
-
-                this.adu.rotate = fullangle;
-
+                );*/
             });
         },
+
+        /*initRotate() {
+            let canvas = document.getElementById("map_canvas");
+            canvas.style.display = "block";
+            let ctx = canvas.getContext("2d");
+            var p2 = {
+                x: window.innerWidth,
+                y: window.innerHeight,
+            };
+            canvas.addEventListener("mousedown", (e) => {
+                this.isCanvasRotating = true;
+                canvas.addEventListener("mousemove", (e) => {
+                    if (this.isCanvasRotating) {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        var p1 = {
+                            x: e.pageX,
+                            y: e.pageY,
+                        };
+                        var angleDeg =
+                            (Math.atan2(p2.y / 2 - p1.y, p2.x / 2 - p1.x) *
+                                180) /
+                            Math.PI;
+                        var a = p1.x - p2.x;
+                        var b = p1.y - p2.y;
+                        var c = Math.sqrt(a * a + b * b);
+                        ctx.beginPath();
+                        ctx.moveTo(canvas.width / 2, canvas.height / 2);
+                        ctx.arc(
+                            canvas.width / 2,
+                            canvas.height / 2,
+                            25,
+                            1 * Math.PI,
+                            1 * Math.PI +
+                                (2 / 360) * Math.round(angleDeg) * Math.PI,
+                            false
+                        );
+                        ctx.closePath();
+                        ctx.stroke();
+                        let fullangle =
+                            angleDeg < 0
+                                ? Math.round(angleDeg) * -1 +
+                                  (180 - Math.round(angleDeg) * -1) * 2
+                                : angleDeg;
+                        this.adu.rotate = fullangle;
+                        ctx.fillText(
+                            //180           +   180-170 = 10 + 180
+                            Math.round(this.adu.rotate) + "°",
+                            canvas.width - 70,
+                            canvas.height - 20
+                        );
+                    }
+                });
+            });
+
+            canvas.addEventListener("mouseup", (e) => {
+                this.isCanvasRotating = false;
+                canvas.style.display = "none";
+            });
+        },*/
 
         deletePolygon(data, type) {
             if (type == "floorPlan") {
