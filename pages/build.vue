@@ -91,6 +91,9 @@
             <p v-if="isLoading" :class="[`text-center`]">
                 Loading ADU's Catalog...
             </p>
+
+            <button @click="initRotate">Init Rotate</button>
+
             <div v-if="!isLoading" v-for="item of catalog" :key="item.id">
                 <b-card
                     img-src=""
@@ -130,7 +133,7 @@
                                         if (adu.currentId != item.id) {
                                             adu.canDelete = !adu.canDelete;
                                             addPolygon(
-                                                floorPlan,
+                                                item.floorPlan,
                                                 'floorPlan',
                                                 centerBound,
                                                 null,
@@ -142,7 +145,7 @@
                                         return;
                                     }
                                     addPolygon(
-                                        floorPlan,
+                                        item.floorPlan,
                                         'floorPlan',
                                         centerBound,
                                         null,
@@ -189,12 +192,16 @@
                 <hr />
             </div>
         </div>
+        <canvas
+            id="canvasID"
+            width="600"
+            height="600"
+            style="display: none; background-color: red"
+        ></canvas>
 
-        <div
-            id="map"
-            style="height: 100vh"
-            :class="['w-75 position-relative']"
-        ></div>
+        <div id="map" style="height: 100vh" :class="['w-75 position-relative']">
+            <canvas id="map_canvas" :class="[$style.map_canvas]"></canvas>
+        </div>
     </div>
 </template>
 <script>
@@ -232,6 +239,8 @@ export default {
                 isADUSet: false,
                 canDelete: false,
             },
+            currentX: 0,
+            currentY: 0,
             isLoading: true,
             geojsonArrays: [],
             centerBound: null,
@@ -302,6 +311,11 @@ export default {
             floorPlanId = null
         ) {
             if (type == "parcel") {
+                if (this.map.getLayer("parcel_layer"))
+                    this.map.removeLayer("parcel_layer");
+                if (this.map.getSource("parcel_source"))
+                    this.map.removeSource("parcel_source");
+
                 let parcelPolygon = this.$turf.polygon([geometry]);
 
                 this.map.addSource("parcel_source", {
@@ -323,6 +337,11 @@ export default {
                 return;
             }
             if (type == "buildings") {
+                if (this.map.getLayer(`building_layer_${counter}`))
+                    this.map.removeLayer(`building_layer_${counter}`);
+                if (this.map.getSource(`building_source_${counter}`))
+                    this.map.removeSource(`building_source_${counter}`);
+
                 let buildingPolygon = this.$turf.polygon([geometry]);
 
                 this.map.addSource(`building_source_${counter}`, {
@@ -343,12 +362,13 @@ export default {
                 return;
             }
             if (type == "floorPlan") {
-                if (floorPlanId !== null) {
-                    this.adu.currentId = floorPlanId;
+                /*if (floorPlanId !== null) {
                     await this.$store.dispatch("floorPlan/find", floorPlanId);
                     geometry = this.floorPlan;
+                }*/
+                if (floorPlanId !== null) {
+                    this.adu.currentId = floorPlanId;
                 }
-
                 let floorPlanGeometry = JSON.parse(geometry);
 
                 let polygon = this.$turf.polygon(
@@ -387,8 +407,12 @@ export default {
                     bearing
                 );
 
+                translatedPoly.id = 123456;
+
                 this.adu.polygonCoordinates =
                     translatedPoly.geometry.coordinates[0];
+
+                console.log(translatedPoly);
 
                 if (!this.map.getSource("polygon_floorplan")) {
                     this.map.addSource("polygon_floorplan", {
@@ -405,12 +429,107 @@ export default {
                         },
                         layout: {},
                     });
+
+                    //able feature edition
+                    this.map.on("click", (e) => {
+                        var features = this.map.queryRenderedFeatures(e.point, {
+                            layers: ["transform_floor_plan"],
+                        });
+
+                        console.log(features);
+
+                        if (!features.length) {
+                            return;
+                        }
+
+                        var feature = features[0];
+
+                        this.map.setFeatureState(
+                            {
+                                source: "polygon_floorplan",
+                                id: feature.id,
+                            },
+                            {
+                                selected: true,
+                            }
+                        );
+                    });
+
+                    //able rotate polygon
+                    this.map.on("rotate", (e) => {
+                        let features = this.map.queryRenderedFeatures({
+                            layers: ["transform_floor_plan"],
+                        });
+                        if (!features.length) return;
+
+                        let feature = features[0];
+
+                        if (feature.state.selected) {
+                            console.log(this.map.getBearing());
+                            let value = this.map.getBearing();
+
+                            this.map.setFeatureState(
+                                {
+                                    source: "polygon_floorplan",
+                                    id: feature.id,
+                                },
+                                {
+                                    angle: value,
+                                }
+                            );
+                        }
+                    });
+
                     return;
                 }
 
                 this.map.getSource("polygon_floorplan").setData(translatedPoly);
+                //this.map.getSource("point").setData(translatedPoly);
                 return;
             }
+        },
+
+        initRotate() {
+            let canvas = document.getElementById("map_canvas");
+            canvas.style.display = "block";
+            let ctx = canvas.getContext("2d");
+            var p2 = {
+                x: window.innerWidth,
+                y: window.innerHeight,
+            };
+            canvas.addEventListener("mousemove", (e) => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                var p1 = {
+                    x: e.pageX,
+                    y: e.pageY,
+                };
+                var angleDeg =
+                    (Math.atan2((p2.y / 2) - p1.y, (p2.x / 2) - p1.x) * 180) / Math.PI;
+                var a = p1.x - p2.x;
+                var b = p1.y - p2.y;
+                var c = Math.sqrt(a * a + b * b);
+                ctx.beginPath();
+                ctx.moveTo(canvas.width / 2, canvas.height / 2);
+                ctx.arc(
+                    canvas.width / 2,
+                    canvas.height / 2,
+                    50,
+                    1 * Math.PI,
+                    1 * Math.PI + (2 / 360) * Math.round(angleDeg) * Math.PI,
+                    false
+                );
+                ctx.closePath();
+                ctx.stroke();
+                let fullangle = angleDeg < 0 ? (Math.round(angleDeg) * -1) + ((180 - Math.round(angleDeg) * -1) * 2) : angleDeg;
+                ctx.fillText(                   //180           +   180-170 = 10 + 180
+                    Math.round(fullangle) + "°",
+                    canvas.width - 70,
+                    canvas.height - 20
+                );
+
+                this.adu.rotate = fullangle;
+
+            });
         },
 
         deletePolygon(data, type) {
