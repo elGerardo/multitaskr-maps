@@ -92,104 +92,105 @@
                 Loading ADU's Catalog...
             </p>
 
-            <button @click="initRotate">Init Rotate</button>
-
-            <div v-if="!isLoading" v-for="item of catalog" :key="item.id">
-                <b-card
-                    img-src=""
-                    img-width="200"
-                    img-alt="Card image"
-                    img-left
-                    :class="['mb-3']"
-                >
-                    <b-card-text>
-                        {{ item.description }}
-                    </b-card-text>
-                </b-card>
-                <div
-                    :class="[
-                        'd-flex justify-content-center align-items-center',
-                    ]"
-                >
-                    <div :class="['w-25']">
-                        <button
-                            :class="[$style.primary_button]"
-                            @click="
-                                () => {
-                                    if (adu.currentId != item.id) {
-                                        adu.canDelete = true;
-                                    } else {
-                                        adu.canDelete = false;
-                                    }
-
-                                    if (!adu.canDelete) {
-                                        deletePolygon(
-                                            {
-                                                source: 'polygon_floorplan',
-                                                layer: 'transform_floor_plan',
-                                            },
-                                            'floorPlan'
-                                        );
+            <!--<button @click="initRotate">Init Rotate</button>-->
+            <div v-if="!isLoading">
+                <div v-for="item of catalog" :key="item.id">
+                    <b-card
+                        img-src=""
+                        img-width="200"
+                        img-alt="Card image"
+                        img-left
+                        :class="['mb-3']"
+                    >
+                        <b-card-text>
+                            {{ item.description }}
+                        </b-card-text>
+                    </b-card>
+                    <div
+                        :class="[
+                            'd-flex justify-content-center align-items-center',
+                        ]"
+                    >
+                        <div :class="['w-25']">
+                            <button
+                                :class="[$style.primary_button]"
+                                @click="
+                                    () => {
                                         if (adu.currentId != item.id) {
-                                            adu.canDelete = !adu.canDelete;
-                                            addPolygon(
-                                                item.floorPlan,
-                                                'floorPlan',
-                                                centerBound,
-                                                null,
-                                                item.id
+                                            adu.canDelete = true;
+                                        } else {
+                                            adu.canDelete = false;
+                                        }
+
+                                        if (!adu.canDelete) {
+                                            deletePolygon(
+                                                {
+                                                    source: 'polygon_floorplan',
+                                                    layer: 'transform_floor_plan',
+                                                },
+                                                'floorPlan'
                                             );
+                                            if (adu.currentId != item.id) {
+                                                adu.canDelete = !adu.canDelete;
+                                                addPolygon(
+                                                    item.floorPlan,
+                                                    'floorPlan',
+                                                    centerBound,
+                                                    null,
+                                                    item.id
+                                                );
+                                                return;
+                                            }
+                                            adu.currentId = null;
                                             return;
                                         }
-                                        adu.currentId = null;
+                                        addPolygon(
+                                            item.floorPlan,
+                                            'floorPlan',
+                                            centerBound,
+                                            null,
+                                            item.id
+                                        );
                                         return;
                                     }
-                                    addPolygon(
-                                        item.floorPlan,
-                                        'floorPlan',
-                                        centerBound,
-                                        null,
-                                        item.id
-                                    );
-                                    return;
-                                }
-                            "
-                        >
-                            {{
-                                adu.canDelete && adu.currentId == item.id
-                                    ? "Cancel"
-                                    : "Set ADU"
-                            }}
-                        </button>
+                                "
+                            >
+                                {{
+                                    adu.canDelete && adu.currentId == item.id
+                                        ? "Cancel"
+                                        : "Set ADU"
+                                }}
+                            </button>
+                        </div>
                     </div>
+                    <div v-if="adu.canDelete && adu.currentId == item.id">
+                        <button
+                            :class="[
+                                adu.isMoving
+                                    ? $style.primary_button_focus
+                                    : $style.primary_button,
+                            ]"
+                            @click="adu.isMoving = true"
+                        >
+                            Move ADU
+                        </button>
+                        <label
+                            class="mt-3 d-block"
+                            style="color: #747474"
+                            for="rotate"
+                            >Rotate ADU</label
+                        >
+                        <b-form-input
+                            id="rotate"
+                            v-model="adu.rotate"
+                            type="range"
+                            min="0"
+                            step="10"
+                            max="360"
+                        ></b-form-input>
+                    </div>
+                    <hr />
                 </div>
-                <div v-if="adu.canDelete && adu.currentId == item.id">
-                    <button
-                        :class="[
-                            adu.isMoving
-                                ? $style.primary_button_focus
-                                : $style.primary_button,
-                        ]"
-                        @click="adu.isMoving = true"
-                    >
-                        Move ADU
-                    </button>
-                    <label
-                        class="mt-3 d-block"
-                        style="color: #747474"
-                        for="rotate"
-                        >Rotate ADU</label
-                    >
-                    <b-form-input
-                        id="rotate"
-                        v-model="adu.rotate"
-                        type="range"
-                        min="0"
-                        step="10"
-                        max="360"
-                    ></b-form-input>
-                </div>
-                <hr />
             </div>
         </div>
         <canvas
@@ -198,7 +199,6 @@
             height="600"
             style="display: none; background-color: red"
         ></canvas>
-
         <div id="map" style="height: 100vh" :class="['w-75 position-relative']">
             <canvas id="map_canvas" :class="[$style.map_canvas]"></canvas>
         </div>
@@ -413,8 +413,6 @@ export default {
                 this.adu.polygonCoordinates =
                     translatedPoly.geometry.coordinates[0];
 
-                console.log(translatedPoly);
-
                 if (!this.map.getSource("polygon_floorplan")) {
                     this.map.addSource("polygon_floorplan", {
                         type: "geojson",
@@ -494,14 +492,123 @@ export default {
             }
         },
 
+        getOrientation() {
+            //get center
+            this.centerBound;
+
+            //get bbox
+            let parcelPolygon = this.$turf.polygon([this.geojsonArrays]);
+
+            let bbox = this.$turf.bbox(parcelPolygon);
+            let bboxPolygon = this.$turf.bboxPolygon(bbox);
+
+            let geometry = bboxPolygon.geometry.coordinates[0];
+
+            //get midpoints of each vertex
+            //let midpoints = [];
+            let higherDistance = 0;
+            let center = 0;
+            let dataDistances = [];
+            for (let index = 0; index < geometry.length; index++) {
+                //if the next is undefined take center of current and first
+                if (geometry[index + 1] !== undefined) {
+                    //center of current and next
+                    let features = this.$turf.points([
+                        geometry[index],
+                        geometry[index + 1],
+                    ]);
+                    center = this.$turf.center(features);
+                    //midpoints.push(center.geometry.coordinates);
+
+                    let lineString = this.$turf.lineString([
+                        [this.centerBound.lng, this.centerBound.lat],
+                        center.geometry.coordinates,
+                    ]);
+
+                    let to = [this.centerBound.lng, this.centerBound.lat]; //lng, lat
+                    let from = center.geometry.coordinates; //lng, lat
+                    let options = {
+                        units: "meters",
+                    };
+                    let distance = this.$turf.distance(to, from, options);
+                    let floatDistance = distance;
+                    if (parseInt(distance) >= higherDistance) {
+                        higherDistance = parseInt(distance);
+
+                        dataDistances.push({
+                            midpoints: center.geometry.coordinates,
+                            higherDistance: higherDistance,
+                            floatDistance: floatDistance,
+                        });
+                    }
+
+                    if (this.map.getLayer(`line-layer-${index}`))
+                        this.map.removeLayer(`line-layer-${index}`);
+                    if (this.map.getSource(`line-source-${index}`))
+                        this.map.removeSource(`line-source-${index}`);
+
+                    this.map.addSource(`line-source-${index}`, {
+                        type: "geojson",
+                        data: lineString,
+                    });
+
+                    this.map.addLayer({
+                        id: `line-layer-${index}`,
+                        type: "line",
+                        source: `line-source-${index}`,
+                        layout: {
+                            "line-join": "round",
+                            "line-cap": "round",
+                        },
+                        paint: {
+                            "line-color": "#888",
+                            "line-width": 8,
+                        },
+                    });
+
+                    this.map.moveLayer(`line-layer-${index}`, "parcel_layer");
+                }
+            }
+
+            let maximum;
+
+            maximum = Math.max.apply(
+                Math,
+                dataDistances.map((item) => item.higherDistance)
+            );
+
+            dataDistances.forEach((item) => {
+                if (item.higherDistance == maximum) {
+                    new this.$mapboxgl.Marker({
+                        color: "blue",
+                        draggable: true,
+                    })
+                        .setLngLat(item.midpoints)
+                        .addTo(this.map);
+                }
+            });
+
+            maximum = Math.max.apply(
+                Math,
+                dataDistances.map((item) => item.floatDistance)
+            );
+
+            let findResult = dataDistances.find(
+                (x) => x.floatDistance === maximum
+            );
+
+            new this.$mapboxgl.Marker({
+                color: "red",
+                draggable: true,
+            })
+                .setLngLat(findResult.midpoints)
+                .addTo(this.map);
+
+        },
+
         initRotate(e) {
-            /*var p2 = {
-                x: window.innerWidth,
-                y: window.innerHeight,
-            };*/
             this.map.on("mousemove", (e) => {
                 console.log(e);
-                //ctx.clearRect(0, 0, canvas.width, canvas.height);
                 var p2 = {
                     x: window.innerWidth,
                     y: window.innerHeight,
@@ -633,6 +740,7 @@ export default {
                 this.centeredView();
                 this.addPolygon(this.geojsonArrays, "parcel");
                 this.addParcelPointGrid(this.geojsonArrays);
+                this.getOrientation();
             }
         },
 
