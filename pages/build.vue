@@ -1,85 +1,9 @@
 <template>
-    <div class="d-flex">
-        <div :class="[$style.sideBar, 'w-25 p-3']">
-            <!--
-            <div>
-                <b-card
-                    img-src=""
-                    img-width="200"
-                    img-alt="Card image"
-                    img-left
-                    :class="['mb-3']"
-                >
-                    <b-card-text>
-                        Some quick example text to build on the card and make up
-                        the bulk of the card's content.
-                    </b-card-text>
-                </b-card>
-                <div
-                    :class="[
-                        'd-flex justify-content-center align-items-center',
-                    ]"
-                >
-                    <div :class="['w-75']"><p>ADU INFO</p></div>
-                    <div :class="['w-25']">
-                        <button
-                            :class="[$style.primary_button]"
-                            @click="
-                                () => {
-                                    adu.canDelete = !adu.canDelete;
-                                    if (!adu.canDelete) {
-                                        deletePolygon(
-                                            {
-                                                source: 'polygon_floorplan',
-                                                layer: 'transform_floor_plan',
-                                            },
-                                            'floorPlan'
-                                        );
-                                        return;
-                                    }
-                                    addPolygon(
-                                        floorPlan,
-                                        'floorPlan',
-                                        centerBound,
-                                        null
-                                    );
-                                    return;
-                                }
-                            "
-                        >
-                            {{ adu.canDelete ? "Cancel" : "Set ADU" }}
-                        </button>
-                    </div>
-                </div>
-                <div v-if="adu.canDelete">
-                    <button
-                        :class="[
-                            adu.isMoving
-                                ? $style.primary_button_focus
-                                : $style.primary_button,
-                        ]"
-                        @click="adu.isMoving = true"
-                    >
-                        Move ADU
-                    </button>
-                    <label
-                        class="mt-3 d-block"
-                        style="color: #747474"
-                        for="rotate"
-                        >Rotate ADU</label
-                    >
-                    <b-form-input
-                        id="rotate"
-                        v-model="adu.rotate"
-                        type="range"
-                        min="0"
-                        step="10"
-                        max="360"
-                    ></b-form-input>
-                </div>
-            </div>
-            <hr />
-            -->
+    <div :class="[$style.content, 'w-100']">
+        <div id="map" :class="[$style.map, 'position-relative']">
+            <canvas id="map_canvas" :class="[$style.map_canvas]"></canvas>
+        </div>
+        <div :class="[$style.sideBar, 'p-3']">
             <div
                 v-if="isLoading"
                 :class="[
@@ -92,7 +16,6 @@
                 Loading ADU's Catalog...
             </p>
 
-            <!--<button @click="initRotate">Init Rotate</button>-->
             <div v-if="!isLoading">
                 <div v-for="item of catalog" :key="item.id">
                     <b-card
@@ -193,15 +116,6 @@
                 </div>
             </div>
         </div>
-        <canvas
-            id="canvasID"
-            width="600"
-            height="600"
-            style="display: none; background-color: red"
-        ></canvas>
-        <div id="map" style="height: 100vh" :class="['w-75 position-relative']">
-            <canvas id="map_canvas" :class="[$style.map_canvas]"></canvas>
-        </div>
     </div>
 </template>
 <script>
@@ -238,6 +152,7 @@ export default {
                 isAllowed: true,
                 isADUSet: false,
                 canDelete: false,
+                isRotating: false,
             },
             isCanvasRotating: false,
             currentX: 0,
@@ -284,10 +199,34 @@ export default {
                 this.coordinates.lng = parseFloat(e.lngLat.lng);
             });
 
-            this.map.on("mousemove", "parcel_layer", (e) => {
-                if (this.adu.isMoving) {
-                    this.addPolygon(this.floorPlan, "floorPlan", e.lngLat);
-                }
+            this.map.on("mousedown", "transform_floor_plan", (e) => {
+                e.preventDefault();
+                this.adu.isMoving = true;
+                this.map.on("mousemove", "parcel_layer", (e) => {
+                    if (this.adu.isMoving && !this.adu.isRotating) {
+                        this.coordinates.lat = e.lngLat.lat;
+                        this.coordinates.lng = e.lngLat.lng;
+                        this.addPolygon(this.floorPlan, "floorPlan", e.lngLat);
+                    }
+                });
+                this.map.on("mouseup", () => {
+                    this.adu.isMoving = false;
+                });
+            });
+
+            this.map.on("touchstart", "transform_floor_plan", (e) => {
+                e.preventDefault();
+                this.adu.isMoving = true;
+                this.map.on("touchmove", "parcel_layer", (e) => {
+                    if (this.adu.isMoving && !this.adu.isRotating) {
+                        this.coordinates.lat = e.lngLat.lat;
+                        this.coordinates.lng = e.lngLat.lng;
+                        this.addPolygon(this.floorPlan, "floorPlan", e.lngLat);
+                    }
+                });
+                this.map.on("touchend", () => {
+                    this.adu.isMoving = false;
+                });
             });
 
             this.map.on("click", "parcel_layer", (e) => {
@@ -301,6 +240,15 @@ export default {
                 this.map.once("idle", () => {
                     this.isLoading = false;
                 });
+
+                this.map.loadImage(
+                    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRw2Sfx3WfWCkAx8xnzIrPBDHZvcqGxWKbNWCbgsrV3zA&s",
+                    (error, image) => {
+                        if (error) throw error;
+
+                        this.map.addImage("rotate", image);
+                    }
+                );
             });
         },
 
@@ -363,10 +311,6 @@ export default {
                 return;
             }
             if (type == "floorPlan") {
-                /*if (floorPlanId !== null) {
-                    await this.$store.dispatch("floorPlan/find", floorPlanId);
-                    geometry = this.floorPlan;
-                }*/
                 if (floorPlanId !== null) {
                     this.adu.currentId = floorPlanId;
                 }
@@ -408,8 +352,6 @@ export default {
                     bearing
                 );
 
-                translatedPoly.id = 123456;
-
                 this.adu.polygonCoordinates =
                     translatedPoly.geometry.coordinates[0];
 
@@ -429,67 +371,74 @@ export default {
                         layout: {},
                     });
 
-                    this.map.on("mousedown", "transform_floor_plan", (e) => {
-                        this.initRotate(e);
-                    });
-                    /*
-                    //able feature edition
-                    this.map.on("click", (e) => {
-                        var features = this.map.queryRenderedFeatures(e.point, {
-                            layers: ["transform_floor_plan"],
-                        });
+                    this.addImageRotate();
 
-                        console.log(features);
-
-                        if (!features.length) {
-                            return;
-                        }
-
-                        var feature = features[0];
-
-                        this.map.setFeatureState(
-                            {
-                                source: "polygon_floorplan",
-                                id: feature.id,
-                            },
-                            {
-                                selected: true,
-                            }
-                        );
-                    });
-
-                    //able rotate polygon
-                    this.map.on("rotate", (e) => {
-                        let features = this.map.queryRenderedFeatures({
-                            layers: ["transform_floor_plan"],
-                        });
-                        if (!features.length) return;
-
-                        let feature = features[0];
-
-                        if (feature.state.selected) {
-                            console.log(this.map.getBearing());
-                            let value = this.map.getBearing();
-
-                            this.map.setFeatureState(
-                                {
-                                    source: "polygon_floorplan",
-                                    id: feature.id,
-                                },
-                                {
-                                    angle: value,
-                                }
-                            );
-                        }
-                    });
-*/
                     return;
                 }
 
                 this.map.getSource("polygon_floorplan").setData(translatedPoly);
-                //this.map.getSource("point").setData(translatedPoly);
+                this.map.getSource("point").setData(translatedPoly);
                 return;
             }
+        },
+
+        addImageRotate(coordinates) {
+            if (this.map.getLayer("points")) this.map.removeLayer("points");
+            if (this.map.getSource("point")) this.map.removeSource("point");
+
+            this.map.addSource("point", {
+                type: "geojson",
+                data: {
+                    type: "FeatureCollection",
+                    features: [
+                        {
+                            type: "Feature",
+                            geometry: {
+                                type: "Point",
+                                coordinates: this.adu.polygonCoordinates[0],
+                            },
+                        },
+                    ],
+                },
+            });
+
+            // Add a layer to use the image to represent the data.
+            this.map.addLayer({
+                id: "points",
+                type: "symbol",
+                source: "point", // reference the data source
+                layout: {
+                    "icon-image": "rotate", // reference the image
+                    "icon-size": 0.25,
+                },
+            });
+
+            this.map.on("mousedown", "points", (e) => {
+                e.preventDefault();
+                this.adu.isRotating = true;
+                this.map.on("mousemove", (e) => {
+                    this.initRotate(e);
+                });
+                this.map.once("mouseup", () => {
+                    this.adu.isRotating = false;
+                    this.map.off("mousemove");
+                });
+            });
+
+            this.map.on("touchstart", "points", (e) => {
+                e.preventDefault();
+                //                console.log("toucbing...");
+                this.adu.isRotating = true;
+                this.map.on("touchmove", (e) => {
+                    this.initRotate(e);
+                    //                    console.log("toucbing move...");
+                });
+                this.map.once("touchend", () => {
+                    this.adu.isRotating = false;
+                    this.map.off("touchmove");
+                    //console.log("end...");
+                });
+            });
         },
 
         getOrientation() {
@@ -603,123 +552,55 @@ export default {
             })
                 .setLngLat(findResult.midpoints)
                 .addTo(this.map);
-
         },
 
         initRotate(e) {
-            this.map.on("mousemove", (e) => {
-                console.log(e);
-                var p2 = {
+            if (this.adu.isRotating) {
+                let p2 = {
                     x: window.innerWidth,
                     y: window.innerHeight,
                 };
+                let p1;
+                if (e.originalEvent.changedTouches == undefined) {
+                    p1 = {
+                        x: e.originalEvent.pageX,
+                        y: e.originalEvent.pageY,
+                    };
+                } else {
+                    p1 = {
+                        x: e.originalEvent.changedTouches[0].pageX,
+                        y: e.originalEvent.changedTouches[0].pageY,
+                    };
+                }
 
-                var p1 = {
-                    x: e.originalEvent.pageX,
-                    y: e.originalEvent.pageY,
-                };
-                var angleDeg =
+                let angleDeg =
                     (Math.atan2(p2.y / 2 - p1.y, p2.x / 2 - p1.x) * 180) /
                     Math.PI;
-                /*var a = p1.x - p2.x;
-                var b = p1.y - p2.y;
-                var c = Math.sqrt(a * a + b * b);
-                ctx.beginPath();
-                ctx.moveTo(canvas.width / 2, canvas.height / 2);
-                ctx.arc(
-                    canvas.width / 2,
-                    canvas.height / 2,
-                    25,
-                    1 * Math.PI,
-                    1 * Math.PI + (2 / 360) * Math.round(angleDeg) * Math.PI,
-                    false
-                );*/
-                //ctx.closePath();
-                //ctx.stroke();
                 let fullangle =
                     angleDeg < 0
                         ? Math.round(angleDeg) * -1 +
                           (180 - Math.round(angleDeg) * -1) * 2
                         : angleDeg;
-                //    console.log(fullangle);
                 this.adu.rotate = fullangle;
-                /*ctx.fillText(
-                    //180           +   180-170 = 10 + 180
-                    Math.round(this.adu.rotate) + "°",
-                    canvas.width - 70,
-                    canvas.height - 20
-                );*/
-            });
+            }
+            //            });
         },
-
-        /*initRotate() {
-            let canvas = document.getElementById("map_canvas");
-            canvas.style.display = "block";
-            let ctx = canvas.getContext("2d");
-            var p2 = {
-                x: window.innerWidth,
-                y: window.innerHeight,
-            };
-            canvas.addEventListener("mousedown", (e) => {
-                this.isCanvasRotating = true;
-                canvas.addEventListener("mousemove", (e) => {
-                    if (this.isCanvasRotating) {
-                        ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        var p1 = {
-                            x: e.pageX,
-                            y: e.pageY,
-                        };
-                        var angleDeg =
-                            (Math.atan2(p2.y / 2 - p1.y, p2.x / 2 - p1.x) *
-                                180) /
-                            Math.PI;
-                        var a = p1.x - p2.x;
-                        var b = p1.y - p2.y;
-                        var c = Math.sqrt(a * a + b * b);
-                        ctx.beginPath();
-                        ctx.moveTo(canvas.width / 2, canvas.height / 2);
-                        ctx.arc(
-                            canvas.width / 2,
-                            canvas.height / 2,
-                            25,
-                            1 * Math.PI,
-                            1 * Math.PI +
-                                (2 / 360) * Math.round(angleDeg) * Math.PI,
-                            false
-                        );
-                        ctx.closePath();
-                        ctx.stroke();
-                        let fullangle =
-                            angleDeg < 0
-                                ? Math.round(angleDeg) * -1 +
-                                  (180 - Math.round(angleDeg) * -1) * 2
-                                : angleDeg;
-                        this.adu.rotate = fullangle;
-                        ctx.fillText(
-                            //180           +   180-170 = 10 + 180
-                            Math.round(this.adu.rotate) + "°",
-                            canvas.width - 70,
-                            canvas.height - 20
-                        );
-                    }
-                });
-            });
-
-            canvas.addEventListener("mouseup", (e) => {
-                this.isCanvasRotating = false;
-                canvas.style.display = "none";
-            });
-        },*/
 
         deletePolygon(data, type) {
             if (type == "floorPlan") {
                 let layer = data.layer;
                 let source = data.source;
+                console.log(data);
 
+                //floorplan
                 if (this.map.getLayer(layer.toString()))
                     this.map.removeLayer(layer.toString());
                 if (this.map.getSource(source.toString()))
                     this.map.removeSource(source.toString());
+
+                //image rotate
+                if (this.map.getLayer("points")) this.map.removeLayer("points");
+                if (this.map.getSource("point")) this.map.removeSource("point");
 
                 return;
             }
@@ -728,6 +609,15 @@ export default {
         async getParcel() {
             await this.$store.dispatch("polygons/find", this.coordinates);
             if (this.polygon.parcel_id !== this.parcel.parcel_id) {
+                this.deletePolygon(
+                    {
+                        layer: "transform_floor_plan",
+                        source: "polygon_floorplan",
+                    },
+                    "floorPlan"
+                );
+                this.adu.canDelete = false;
+
                 this.parcel.parcel_id = this.polygon.parcel_id;
                 let itemsArrays = JSON.parse(this.polygon.geojson).coordinates;
                 this.geojsonArrays = [];
@@ -962,10 +852,12 @@ export default {
         coordinates: {
             deep: true,
             handler: function (value, old) {
-                this.getParcel();
-                this.$router.push({
-                    query: this.coordinates,
-                });
+                if (!this.adu.isMoving || !this.adu.isRotating) {
+                    this.getParcel();
+                    this.$router.push({
+                        query: this.coordinates,
+                    });
+                }
             },
         },
         "adu.rotate": {
