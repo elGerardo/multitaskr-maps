@@ -2,7 +2,7 @@ export default {
     // Global page headers: https://go.nuxtjs.dev/config-head
     ssr: false, //server side render
     head: {
-        title: "multitask-maps",
+        title: "Mapbox App",
         htmlAttrs: {
             lang: "en",
         },

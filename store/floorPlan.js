@@ -46,22 +46,3 @@ export const mutations = {
         state.floorPlan = data;
     },
 };
-
-export const actions = {
-    async find({ commit }, adu_id) {
-        let collection;
-        if (adu_id == "adu_1") {
-            collection =
-                '{\n  "type": "FeatureCollection",\n  "features": [\n    {\n      "type": "Feature",\n      "properties": {},\n      "geometry": {\n        "coordinates": [\n          [\n            [\n              -117.076035095306,\n              32.60992921676056\n            ],\n            [\n              -117.076035095306,\n              32.609880962358176\n            ],\n            [\n              -117.07591739747306,\n              32.609880962358176\n            ],\n            [\n              -117.07591739747306,\n              32.60992921676056\n            ],\n            [\n              -117.076035095306,\n              32.60992921676056\n            ]\n          ]\n        ],\n        "type": "Polygon"\n      }\n    }\n  ]\n}';
-        }
-        if (adu_id == "adu_2") {
-            collection =
-                '{\n  "type": "FeatureCollection",\n  "features": [\n    {\n      "type": "Feature",\n      "properties": {},\n      "geometry": {\n        "coordinates": [\n          [\n            [\n              -117.0758987563481,\n              32.609948998628525\n            ],\n            [\n              -117.07580825866327,\n              32.609948998628525\n            ],\n            [\n              -117.07580825866327,\n              32.609991848390564\n            ],\n            [\n              -117.0758987563481,\n              32.609991848390564\n            ],\n            [\n              -117.0758987563481,\n              32.609948998628525\n            ]\n          ]\n        ],\n        "type": "Polygon"\n      }\n    }\n  ]\n}';
-        }
-        if (adu_id == "adu_3") {
-            collection =
-                '{\n  "type": "FeatureCollection",\n  "features": [\n    {\n      "type": "Feature",\n      "properties": {},\n      "geometry": {\n        "coordinates": [\n          [\n            [\n              -117.07589969749372,\n              32.60994585586276\n            ],\n            [\n              -117.07589969749372,\n              32.60991942720922\n            ],\n            [\n              -117.07581577363476,\n              32.60991942720922\n            ],\n            [\n              -117.07581577363476,\n              32.60994585586276\n            ],\n            [\n              -117.07589969749372,\n              32.60994585586276\n            ]\n          ]\n        ],\n        "type": "Polygon"\n      }\n    }\n  ]\n}';
-        }
-        await commit("floorPlan", collection);
-    },
-};

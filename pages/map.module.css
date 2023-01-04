@@ -1,0 +1,43 @@
+body {
+    overflow-x: hidden;
+}
+
+.map
+{
+    width: 100vw; 
+    height: 100vh;
+}
+
+.sideBar {
+    height: 90vh;
+    width: 20%;
+    top: 15px;
+    left: 15px;
+    position: absolute;
+    z-index: 2;
+    padding: 15px;
+}
+
+@media only screen and (max-width: 780px) {
+    .map
+    {
+        width: 100vw; 
+        height: 70vh;
+    }
+    
+    .sideBar
+    {
+        height: fit-content;
+        padding: 0px 15px;
+        width: 100%;
+        top: 0;
+        left: 0;
+        right: 0;
+        position:relative;
+        z-index: 2;
+    }
+    .sideBar img
+    {
+        width: 150px;
+    }
+}

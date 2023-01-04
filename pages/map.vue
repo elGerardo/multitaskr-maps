@@ -1,23 +1,15 @@
 <template>
     <div>
-        <div
+        <!--<div
             id="loading_container"
             :style="isLoading ? 'displa:inline;' : 'display:none'"
         >
             <div>
                 <h1>Loading...</h1>
             </div>
-        </div>
+        </div>-->
         <div
-            style="
-                height: 90vh;
-                width: 20%;
-                top: 15px;
-                left: 15px;
-                position: absolute;
-                z-index: 2;
-            "
-            class="bg-white rounded shadow-lg border-0 p-3"
+            :class="[$style.sideBar, 'bg-white rounded shadow-lg border-0']"
         >
             <b-img
                 src="../assets/images/mk_logo.png"
@@ -64,20 +56,15 @@
                 <form :style="isLoading ? 'displa:none;' : 'display:block;'">
                     <div
                         class="d-flex flex-column p-3"
-                        style="border-top: 1px solid #e1d9dc"
                     >
-                        <div style="border-bottom: 1px solid #e1d9dc">
-                            <label for="address" style="color: #747474"
-                                >Address</label
-                            >
+                        <div>
                             <p class="font-weight-bold">{{ address }}</p>
                         </div>
                         <div
                             class="w-100 d-flex justify-content-center align-items-center flex-column pb-3"
-                            style="border-bottom: 1px solid #e1d9dc"
                         >
                         
-                        <p  @click="initFloorPlanADU">Set ADU</p>
+                        <!--<p  @click="initFloorPlanADU">Set ADU</p>-->
                    
 
                             <NuxtLink :to="`build?lat=${coordinates.lat}&lng=${coordinates.lng}`"
@@ -90,24 +77,8 @@
                                     width: 75%;
                                     text-align: center;
                                 "
-                                class="mt-3"
                                 value="Multitaskr Build"
                             >Build</NuxtLink>
-                            <!--<input
-                                type="button"
-                                style="
-                                    border-radius: 5px 5px 0 0;
-                                    outline: none;
-                                    border: 1px solid #4d04af;
-                                    background-color: #4d04af;
-                                    color: white;
-                                    width: 75%;
-                                "
-                                class="mt-3"
-                                @click="removeADU()"
-                                value="Cancel"
-                                v-if="!adu.isADUSet"
-                            />-->
                             <span
                                 style="
                                     border-radius: 0 0 5px 5px;
@@ -154,7 +125,7 @@
             </div>
         </div>
 
-        <div id="map" style="width: 100vw; height: 100vh" class="position-relative">
+        <div id="map" :class="[$style.map, 'position-relative']">
             <div
                 class="d-flex justify-content-center align-items-center flex-column position-absolute"
                 style="right: 35px; bottom: 25px; z-index: 5"
@@ -1307,12 +1278,7 @@ export default {
         },
     },
 };
-</script>
-<style>
-body {
-    overflow-x: hidden;
-}
-
+/*
 .nav-link {
     color: #85088e;
 }
@@ -1339,4 +1305,9 @@ body {
         background-position: 0% 50%;
     }
 }
+*/
+
+</script>
+<style module>
+@import url(./map.module.css);
 </style>

@@ -3,7 +3,7 @@
         <div id="map" :class="[$style.map, 'position-relative']">
             <canvas id="map_canvas" :class="[$style.map_canvas]"></canvas>
         </div>
-        <div :class="[$style.sideBar, 'p-3']">
+        <div :class="[$style.sideBar, 'p-3 shadow-lg']">
             <div
                 v-if="isLoading"
                 :class="[
@@ -313,7 +313,9 @@ export default {
             if (type == "floorPlan") {
                 if (floorPlanId !== null) {
                     this.adu.currentId = floorPlanId;
+                    this.$store.commit("floorPlan/floorPlan", geometry);
                 }
+
                 let floorPlanGeometry = JSON.parse(geometry);
 
                 let polygon = this.$turf.polygon(
@@ -441,15 +443,38 @@ export default {
             });
         },
 
-        getOrientation() {
-            //get center
-            this.centerBound;
+        getBearing({ parcel }) {
+            console.log(parcel);
+            let orientation = this.$turf.bearing(parcel);
+            console.log(orientation);
+        },
 
+        getOrientation() {
             //get bbox
             let parcelPolygon = this.$turf.polygon([this.geojsonArrays]);
-
+            console.log(parcelPolygon);
             let bbox = this.$turf.bbox(parcelPolygon);
             let bboxPolygon = this.$turf.bboxPolygon(bbox);
+
+            if (this.map.getLayer("bbox-layer"))
+                this.map.removeLayer("bbox-layer");
+            if (this.map.getSource("bbox-source"))
+                this.map.removeSource("bbox-source");
+                
+            this.map.addSource(`bbox-source`, {
+                type: "geojson",
+                data: bboxPolygon,
+            });
+
+            this.map.addLayer({
+                id: `bbox-layer`,
+                type: "fill",
+                source: `bbox-source`,
+                paint: {
+                    "fill-color": "rgb(125, 116, 116)",
+                    "fill-opacity": 0.5,
+                },
+            });
 
             let geometry = bboxPolygon.geometry.coordinates[0];
 
@@ -526,14 +551,23 @@ export default {
                 dataDistances.map((item) => item.higherDistance)
             );
 
+            let marker;
+            let color = "blue";
             dataDistances.forEach((item) => {
                 if (item.higherDistance == maximum) {
-                    new this.$mapboxgl.Marker({
-                        color: "blue",
+                    marker = new this.$mapboxgl.Marker({
+                        color: color,
                         draggable: true,
                     })
                         .setLngLat(item.midpoints)
                         .addTo(this.map);
+
+                    let features = this.map.queryRenderedFeatures(
+                        marker._pos,
+                        {}
+                    );
+                    console.log(features);
+                    color = "red";
                 }
             });
 
@@ -546,12 +580,14 @@ export default {
                 (x) => x.floatDistance === maximum
             );
 
+            /*
             new this.$mapboxgl.Marker({
                 color: "red",
                 draggable: true,
             })
                 .setLngLat(findResult.midpoints)
                 .addTo(this.map);
+                */
         },
 
         initRotate(e) {
@@ -590,7 +626,6 @@ export default {
             if (type == "floorPlan") {
                 let layer = data.layer;
                 let source = data.source;
-                console.log(data);
 
                 //floorplan
                 if (this.map.getLayer(layer.toString()))
