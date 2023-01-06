@@ -444,26 +444,49 @@ export default {
         },
 
         getBearing({ parcel }) {
-            console.log(parcel);
+            //console.log(parcel);
             let orientation = this.$turf.bearing(parcel);
-            console.log(orientation);
+            //console.log(orientation);
         },
 
         getOrientation() {
             //get bbox
             let parcelPolygon = this.$turf.polygon([this.geojsonArrays]);
-            console.log(parcelPolygon);
             let bbox = this.$turf.bbox(parcelPolygon);
             let bboxPolygon = this.$turf.bboxPolygon(bbox);
+            var scaledBbox = this.$turf.transformScale(bboxPolygon, 1.05, {
+                options: "meters",
+            });
+
+            let bboxCordinates = scaledBbox.geometry.coordinates[0];
+
+            bboxCordinates.forEach((item, index) => {
+                let marker = new this.$mapboxgl.Marker({
+                    color: color,
+                    draggable: true,
+                })
+                    .setLngLat(item)
+                    .addTo(this.map)
+                    .setPopup(
+                        new this.$mapboxgl.Popup()
+                            .setText(`marker-${index}`)
+                            .addTo(this.map)
+                    );
+
+                let features = this.map.queryRenderedFeatures(marker._pos, {});
+                console.log(`marker-${index}`);
+                console.log(features);
+                marker.remove();
+            });
 
             if (this.map.getLayer("bbox-layer"))
                 this.map.removeLayer("bbox-layer");
             if (this.map.getSource("bbox-source"))
                 this.map.removeSource("bbox-source");
-                
+
             this.map.addSource(`bbox-source`, {
                 type: "geojson",
-                data: bboxPolygon,
+                data: scaledBbox,
             });
 
             this.map.addLayer({
@@ -566,8 +589,8 @@ export default {
                         marker._pos,
                         {}
                     );
-                    console.log(features);
                     color = "red";
+                    marker.remove();
                 }
             });
 
@@ -690,94 +713,6 @@ export default {
             this.map.moveLayer("building_base", "parcel_layer");
         },
 
-        addParcelDifference(building, parcel) {
-            let parcelGeometry = this.$turf.polygon([
-                parcel.geometry.coordinates[0],
-            ]);
-            let buildingGeometry = this.$turf.polygon([
-                building.geometry.coordinates[0],
-            ]);
-
-            let difference = this.$turf.difference(
-                parcelGeometry,
-                buildingGeometry
-            );
-
-            this.map.addSource("parcel_difference", {
-                type: "geojson",
-                data: difference,
-            });
-
-            this.map.addLayer({
-                id: "parcel_difference_fill",
-                type: "fill",
-                source: "parcel_difference",
-                paint: {
-                    "fill-color": "#15111b",
-                    "fill-opacity": 0.5,
-                },
-            });
-
-            let bbox = this.$turf.bbox(difference);
-            let bboxLayer = this.$turf.bboxPolygon(bbox);
-
-            this.map.addSource("bboxLayer", {
-                type: "geojson",
-                data: bboxLayer,
-            });
-
-            /*this.map.addLayer({
-                id: "bboxLayer_layer",
-                type: "line",
-                source: "bboxLayer",
-                paint: {
-                    "line-color": "red",
-                    "line-width": 2,
-                },
-            });*/
-
-            let cellWidth = 1;
-            let cellHeight = 0.05;
-
-            let bufferedBbox = this.$turf.bbox(
-                this.$turf.buffer(difference, cellWidth, { units: "meters" })
-            );
-            var cellSide = 2;
-            var options = { units: "meters", mask: difference };
-
-            var squareGrid = this.$turf.squareGrid(
-                bufferedBbox,
-                cellSide,
-                options
-            );
-
-            this.map.addSource("parcel_difference_grid", {
-                type: "geojson",
-                data: squareGrid,
-            });
-
-            /*this.map.addLayer({
-                id: "parcel_difference_fill_grid",
-                type: "line",
-                source: "parcel_difference_grid",
-                paint: {
-                    "line-color": "#04af15",
-                    "line-width": 2,
-                },
-            });*/
-
-            this.$turf.featureEach(
-                squareGrid,
-                (currentFeature, featureIndex) => {
-                    let intersected = this.$turf.intersect(
-                        squareGrid.features[0],
-                        currentFeature
-                    );
-                    console.log(intersected);
-                }
-            );
-        },
-
         contentPointGrid(coordinates) {
             this.parcel.buildings = [];
             this.parcel.buildingsId = [];
@@ -857,6 +792,43 @@ export default {
             await this.contentPointGrid(coordinates);
         },
 
+        validateParcelPosition(geometry) {
+            for (let index = 0; index < geometry.length; index++) {
+                let position = new this.$mapboxgl.Marker({
+                    color: "yellow",
+                    draggable: true,
+                })
+                    .setLngLat(geometry[index])
+                    .addTo(this.map);
+
+                let contentParcel = this.map.queryRenderedFeatures(
+                    position._pos,
+                    {
+                        layers: ["parcel_layer"],
+                    }
+                );
+
+                if (contentParcel.length == 0) {
+                    this.map.setPaintProperty(
+                        "transform_floor_plan",
+                        "fill-color",
+                        "red"
+                    );
+                    position.remove();
+                    index = geometry.length;
+                    return;
+                }
+
+                this.map.setPaintProperty(
+                    "transform_floor_plan",
+                    "fill-color",
+                    "#b390f9"
+                );
+                position.remove();
+                return;
+            }
+        },
+
         centeredView() {
             let bounds = new this.$mapboxgl.LngLatBounds(
                 this.geojsonArrays[0],
@@ -898,6 +870,13 @@ export default {
         "adu.rotate": {
             handler: function (value, old) {
                 this.addPolygon(this.floorPlan, "floorPlan", this.coordinates);
+                this.validateParcelPosition(this.adu.polygonCoordinates);
+            },
+        },
+
+        "adu.polygonCoordinates": {
+            handler: function (value, old) {
+                this.validateParcelPosition(this.adu.polygonCoordinates);
             },
         },
     },
