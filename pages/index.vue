@@ -7,7 +7,7 @@
     >
       <div>
         <b-img
-          src="../assets/images/mk_logo.png"
+          src="/mk_logo.png"
           fluid
           alt="Responsive image"
         ></b-img>

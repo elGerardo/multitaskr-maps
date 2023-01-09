@@ -19,10 +19,10 @@
             <div v-if="!isLoading">
                 <div v-for="item of catalog" :key="item.id">
                     <b-card
-                        img-src=""
+                        :img-src="item.image"
                         img-width="200"
                         img-alt="Card image"
-                        img-left
+                        img-top
                         :class="['mb-3']"
                     >
                         <b-card-text>
@@ -55,25 +55,23 @@
                                             );
                                             if (adu.currentId != item.id) {
                                                 adu.canDelete = !adu.canDelete;
-                                                addPolygon(
-                                                    item.floorPlan,
-                                                    'floorPlan',
-                                                    centerBound,
-                                                    null,
-                                                    item.id
-                                                );
+                                                addPolygon({
+                                                    geometry: item.floorPlan,
+                                                    type: 'floorPlan',
+                                                    coordinates: centerBound,
+                                                    floorPlanId: item.id,
+                                                });
                                                 return;
                                             }
                                             adu.currentId = null;
                                             return;
                                         }
-                                        addPolygon(
-                                            item.floorPlan,
-                                            'floorPlan',
-                                            centerBound,
-                                            null,
-                                            item.id
-                                        );
+                                        addPolygon({
+                                            geometry: item.floorPlan,
+                                            type: 'floorPlan',
+                                            coordinates: centerBound,
+                                            floorPlanId: item.id,
+                                        });
                                         return;
                                     }
                                 "
@@ -195,8 +193,7 @@ export default {
             });
 
             this.map.on("click", (e) => {
-                this.coordinates.lat = parseFloat(e.lngLat.lat);
-                this.coordinates.lng = parseFloat(e.lngLat.lng);
+                this.coordinates = e.lngLat;
             });
 
             this.map.on("mousedown", "transform_floor_plan", (e) => {
@@ -206,7 +203,11 @@ export default {
                     if (this.adu.isMoving && !this.adu.isRotating) {
                         this.coordinates.lat = e.lngLat.lat;
                         this.coordinates.lng = e.lngLat.lng;
-                        this.addPolygon(this.floorPlan, "floorPlan", e.lngLat);
+                        this.addPolygon({
+                            geometry: this.floorPlan,
+                            type: "floorPlan",
+                            coordinates: e.lngLat,
+                        });
                     }
                 });
                 this.map.on("mouseup", () => {
@@ -221,7 +222,11 @@ export default {
                     if (this.adu.isMoving && !this.adu.isRotating) {
                         this.coordinates.lat = e.lngLat.lat;
                         this.coordinates.lng = e.lngLat.lng;
-                        this.addPolygon(this.floorPlan, "floorPlan", e.lngLat);
+                        this.addPolygon({
+                            geometry: this.floorPlan,
+                            type: "floorPlan",
+                            coordinates: e.lngLat,
+                        });
                     }
                 });
                 this.map.on("touchend", () => {
@@ -252,13 +257,13 @@ export default {
             });
         },
 
-        async addPolygon(
+        async addPolygon({
             geometry,
             type,
             coordinates,
-            counter = 0,
-            floorPlanId = null
-        ) {
+            counter,
+            floorPlanId,
+        }) {
             if (type == "parcel") {
                 if (this.map.getLayer("parcel_layer"))
                     this.map.removeLayer("parcel_layer");
@@ -311,7 +316,11 @@ export default {
                 return;
             }
             if (type == "floorPlan") {
-                if (floorPlanId !== null) {
+                if (
+                    floorPlanId !== null &&
+                    !this.adu.isMoving &&
+                    !this.adu.isRotating
+                ) {
                     this.adu.currentId = floorPlanId;
                     this.$store.commit("floorPlan/floorPlan", geometry);
                 }
@@ -474,8 +483,6 @@ export default {
                     );
 
                 let features = this.map.queryRenderedFeatures(marker._pos, {});
-                console.log(`marker-${index}`);
-                console.log(features);
                 marker.remove();
             });
 
@@ -495,14 +502,13 @@ export default {
                 source: `bbox-source`,
                 paint: {
                     "fill-color": "rgb(125, 116, 116)",
-                    "fill-opacity": 0.5,
+                    "fill-opacity": 0,
                 },
             });
 
             let geometry = bboxPolygon.geometry.coordinates[0];
 
             //get midpoints of each vertex
-            //let midpoints = [];
             let higherDistance = 0;
             let center = 0;
             let dataDistances = [];
@@ -522,20 +528,24 @@ export default {
                         center.geometry.coordinates,
                     ]);
 
-                    let to = [this.centerBound.lng, this.centerBound.lat]; //lng, lat
+                    let scaledLineString = this.$turf.transformScale(lineString, 1.05);
+
                     let from = center.geometry.coordinates; //lng, lat
                     let options = {
                         units: "meters",
                     };
+                    let to = [this.centerBound.lng, this.centerBound.lat]; //lng, lat
+
                     let distance = this.$turf.distance(to, from, options);
                     let floatDistance = distance;
+
                     if (parseInt(distance) >= higherDistance) {
                         higherDistance = parseInt(distance);
-
                         dataDistances.push({
-                            midpoints: center.geometry.coordinates,
+                            midpoints: scaledLineString.geometry.coordinates[1],
                             higherDistance: higherDistance,
                             floatDistance: floatDistance,
+                            line: [geometry[index], geometry[index + 1]],
                         });
                     }
 
@@ -546,7 +556,7 @@ export default {
 
                     this.map.addSource(`line-source-${index}`, {
                         type: "geojson",
-                        data: lineString,
+                        data: scaledLineString,
                     });
 
                     this.map.addLayer({
@@ -559,6 +569,7 @@ export default {
                         },
                         paint: {
                             "line-color": "#888",
+                            "line-opacity": 0,
                             "line-width": 8,
                         },
                     });
@@ -589,7 +600,36 @@ export default {
                         marker._pos,
                         {}
                     );
+
                     color = "red";
+
+                    if (features.length == 0) {
+                        let lineString = this.$turf.lineString(item.line);
+
+                        if (this.map.getLayer("line-layer-front"))
+                            this.map.removeLayer("line-layer-front");
+                        if (this.map.getSource("line-source-front"))
+                            this.map.removeSource("line-source-front");
+
+                        this.map.addSource(`line-source-front`, {
+                            type: "geojson",
+                            data: lineString,
+                        });
+
+                        this.map.addLayer({
+                            id: `line-layer-front`,
+                            type: "line",
+                            source: `line-source-front`,
+                            layout: {
+                                "line-join": "round",
+                                "line-cap": "round",
+                            },
+                            paint: {
+                                "line-color": "green",
+                                "line-width": 5,
+                            },
+                        });
+                    }
                     marker.remove();
                 }
             });
@@ -603,14 +643,12 @@ export default {
                 (x) => x.floatDistance === maximum
             );
 
-            /*
-            new this.$mapboxgl.Marker({
+            /*new this.$mapboxgl.Marker({
                 color: "red",
                 draggable: true,
             })
                 .setLngLat(findResult.midpoints)
-                .addTo(this.map);
-                */
+                .addTo(this.map);*/
         },
 
         initRotate(e) {
@@ -686,7 +724,10 @@ export default {
                 });
 
                 this.centeredView();
-                this.addPolygon(this.geojsonArrays, "parcel");
+                this.addPolygon({
+                    geometry: this.geojsonArrays,
+                    type: "parcel",
+                });
                 this.addParcelPointGrid(this.geojsonArrays);
                 this.getOrientation();
             }
@@ -757,12 +798,11 @@ export default {
                             this.parcel.buildings.push({
                                 buildingGeometry: geometry,
                             });
-                            this.addPolygon(
-                                geometry,
-                                "buildings",
-                                null,
-                                buildingCounter
-                            );
+                            this.addPolygon({
+                                geometry: geometry,
+                                type: "buildings",
+                                counter: buildingCounter,
+                            });
                             buildingCounter += 1;
                         }
                     }
@@ -792,7 +832,7 @@ export default {
             await this.contentPointGrid(coordinates);
         },
 
-        validateParcelPosition(geometry) {
+        validateFloorplanPosition(geometry) {
             for (let index = 0; index < geometry.length; index++) {
                 let position = new this.$mapboxgl.Marker({
                     color: "yellow",
@@ -808,7 +848,14 @@ export default {
                     }
                 );
 
-                if (contentParcel.length == 0) {
+                let contentBuilding = this.map.queryRenderedFeatures(
+                    position._pos,
+                    {
+                        layers: ["building_base"],
+                    }
+                );
+
+                if (contentParcel.length == 0 || contentBuilding.length >= 1) {
                     this.map.setPaintProperty(
                         "transform_floor_plan",
                         "fill-color",
@@ -825,7 +872,6 @@ export default {
                     "#b390f9"
                 );
                 position.remove();
-                return;
             }
         },
 
@@ -858,25 +904,36 @@ export default {
     watch: {
         coordinates: {
             deep: true,
-            handler: function (value, old) {
+            handler: async function (value, old) {
                 if (!this.adu.isMoving || !this.adu.isRotating) {
-                    this.getParcel();
-                    this.$router.push({
-                        query: this.coordinates,
-                    });
+                    try {
+                        await this.getParcel();
+                        this.$router.push({
+                            query: value,
+                        });
+                    } catch (e) {
+                        this.$router.push({
+                            query: old,
+                        });
+                    }
                 }
             },
         },
+
         "adu.rotate": {
             handler: function (value, old) {
-                this.addPolygon(this.floorPlan, "floorPlan", this.coordinates);
-                this.validateParcelPosition(this.adu.polygonCoordinates);
+                this.addPolygon({
+                    geometry: this.floorPlan,
+                    type: "floorPlan",
+                    coordinates: this.coordinates,
+                });
+                this.validateFloorplanPosition(this.adu.polygonCoordinates);
             },
         },
 
         "adu.polygonCoordinates": {
             handler: function (value, old) {
-                this.validateParcelPosition(this.adu.polygonCoordinates);
+                this.validateFloorplanPosition(this.adu.polygonCoordinates);
             },
         },
     },

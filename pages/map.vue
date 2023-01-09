@@ -12,7 +12,7 @@
             :class="[$style.sideBar, 'bg-white rounded shadow-lg border-0']"
         >
             <b-img
-                src="../assets/images/mk_logo.png"
+                src="/mk_logo.png"
                 fluid
                 alt="Responsive image"
                 class="my-3"
