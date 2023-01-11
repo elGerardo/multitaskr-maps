@@ -18,16 +18,16 @@
 
             <div v-if="!isLoading">
                 <div v-for="item of catalog" :key="item.id">
-                    <b-card
-                        :img-src="item.image"
-                        img-width="200"
-                        img-alt="Card image"
-                        img-top
-                        :class="['mb-3']"
-                    >
-                        <b-card-text>
-                            {{ item.description }}
-                        </b-card-text>
+                    <b-card :class="['mb-3']">
+                        <div :class="[$style.cardContent]">
+                            <img
+                                :class="[$style.sideBarImage]"
+                                :src="item.image"
+                            />
+                            <b-card-text>
+                                {{ item.description }}
+                            </b-card-text>
+                        </div>
                     </b-card>
                     <div
                         :class="[
@@ -463,6 +463,7 @@ export default {
             let parcelPolygon = this.$turf.polygon([this.geojsonArrays]);
             let bbox = this.$turf.bbox(parcelPolygon);
             let bboxPolygon = this.$turf.bboxPolygon(bbox);
+
             var scaledBbox = this.$turf.transformScale(bboxPolygon, 1.05, {
                 options: "meters",
             });
@@ -502,9 +503,11 @@ export default {
                 source: `bbox-source`,
                 paint: {
                     "fill-color": "rgb(125, 116, 116)",
-                    "fill-opacity": 0,
+                    "fill-opacity": 0.5,
                 },
             });
+
+            console.log(this.map.getLayer("bbox-layer"));
 
             let geometry = bboxPolygon.geometry.coordinates[0];
 
@@ -528,7 +531,10 @@ export default {
                         center.geometry.coordinates,
                     ]);
 
-                    let scaledLineString = this.$turf.transformScale(lineString, 1.05);
+                    let scaledLineString = this.$turf.transformScale(
+                        lineString,
+                        1.05
+                    );
 
                     let from = center.geometry.coordinates; //lng, lat
                     let options = {
@@ -631,6 +637,8 @@ export default {
                         });
                     }
                     marker.remove();
+
+                    this.getLineLayerProperties();
                 }
             });
 
@@ -649,6 +657,11 @@ export default {
             })
                 .setLngLat(findResult.midpoints)
                 .addTo(this.map);*/
+        },
+
+        getLineLayerProperties() {
+            "line-source-front";
+            "line-layer-front";
         },
 
         initRotate(e) {
